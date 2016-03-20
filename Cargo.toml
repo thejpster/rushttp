@@ -1,0 +1,4 @@
+[package]
+name = "rushttp"
+version = "0.1.0"
+authors = ["Jonathan 'theJPster' Pallant <git@thejpster.org.uk>"]
