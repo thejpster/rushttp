@@ -1,4 +1,6 @@
-// Unit tests for rushttp
+//! # The rushttp Rust HTTP Library - Unit Tests
+//!
+//! Unit tests for the rushttp library.
 
 use http_parser::*;
 
@@ -10,11 +12,12 @@ fn complete_header() {
         ParseResult::Complete(r) => {
             assert_eq!(r.method, HttpMethod::GET);
             assert_eq!(r.url, "/index.html");
-            assert_eq!(r.version, "HTTP/1.1");
+            assert_eq!(r.protocol, "HTTP/1.1");
         },
         _ => assert!(false)
     }
 }
+
 #[test]
 fn incomplete_header() {
     let mut ctx:ParseContext = Default::default();
@@ -24,6 +27,7 @@ fn incomplete_header() {
         _ => assert!(false)
     }
 }
+
 #[test]
 fn bad_method() {
     let mut ctx:ParseContext = Default::default();
@@ -33,6 +37,7 @@ fn bad_method() {
         _ => assert!(false)
     }
 }
+
 #[test]
 fn bad_header() {
     let mut ctx:ParseContext = Default::default();
@@ -42,3 +47,7 @@ fn bad_header() {
         _ => assert!(false)
     }
 }
+
+//
+// End of file
+//

@@ -1,5 +1,6 @@
 // Contains a basic HTTP server, built using rushttp
 
+// Use our own library
 extern crate rushttp;
 
 use rushttp::http_parser::*;
@@ -83,3 +84,7 @@ fn main() {
 
     drop(listener);
 }
+
+//
+// End of file
+//
