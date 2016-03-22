@@ -11,23 +11,23 @@ use std::thread;
 use std::time::Duration;
 
 fn read_request(stream: &mut TcpStream) -> Option<HttpRequest> {
-    let mut result:Option<HttpRequest> = None;
-    let mut ctx:ParseContext = Default::default();
+    let mut result: Option<HttpRequest> = None;
+    let mut ctx: ParseContext = Default::default();
     loop {
         let mut buffer: [u8; 8] = [0; 8];
         match stream.read(&mut buffer) {
             Ok(len) => {
-                println!("I got {len} chars", len=len);
+                println!("I got {len} chars", len = len);
                 match ctx.parse_header(&buffer) {
                     ParseResult::Complete(r) => {
                         println!("Got request {:?}", r);
                         result = Some(r);
                         break;
-                    },
-                    ParseResult::InProgress => { },
-                    ParseResult::Error => break
+                    }
+                    ParseResult::InProgress => {}
+                    ParseResult::Error => break,
                 }
-            },
+            }
             Err(e) => {
                 println!("read failure: {}", e);
                 break;
@@ -38,7 +38,9 @@ fn read_request(stream: &mut TcpStream) -> Option<HttpRequest> {
 }
 
 fn render_response(stream: &mut TcpStream, request: HttpRequest) {
-    stream.write(b"HTTP/1.0 200 OK\r\nContent-Type: text/plain; charset=utf-8\r\n\r\nThis is a test.\r\n").unwrap();
+    stream.write(b"HTTP/1.0 200 OK\r\n").unwrap();
+    stream.write(b"Content-Type: text/plain; charset=utf-8\r\n\r\n").unwrap();
+    stream.write(b"This is a test.\r\n").unwrap();
 }
 
 fn render_error(stream: &mut TcpStream, error_code: u32, error: &str) {
@@ -55,7 +57,7 @@ fn handle_client(mut stream: TcpStream) {
     // Send response
     match request {
         Some(request) => render_response(&mut stream, request),
-        None => render_error(&mut stream, 500, "Invalid request")
+        None => render_error(&mut stream, 500, "Invalid request"),
     }
 }
 
@@ -72,9 +74,7 @@ fn main() {
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
-                thread::spawn(move || {
-                    handle_client(stream)
-                });
+                thread::spawn(move || handle_client(stream));
             }
             Err(e) => {
                 println!("Connection failed!: {}", e);
@@ -84,9 +84,3 @@ fn main() {
 
     drop(listener);
 }
-
-///////////////////////////////////////////////////////////////////////////////
-//
-// End of File
-//
-///////////////////////////////////////////////////////////////////////////////
