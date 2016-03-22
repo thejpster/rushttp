@@ -94,8 +94,9 @@ impl Default for ParseContext {
 }
 
 impl ParseContext {
-    /// Perform the HTTP parse. The first time, supply a default ParseContext
-    /// object. Subsequently, supply the same object again.
+    /// Perform the HTTP parse.
+    /// This reads the buffer octet by octet, collating strings into
+    /// temporary vectors. If any sort of error occurs, we bail out.
     pub fn parse_header(&mut self, buffer: &[u8]) -> ParseResult {
         for b in buffer {
             let c = *b;
