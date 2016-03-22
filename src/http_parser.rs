@@ -3,6 +3,22 @@
 //! The HTTP Parser converts octet streams into objects, octet by octet.
 //! Can also convert objects back to octet streams.
 
+// ****************************************************************************
+//
+// Imports
+//
+// ****************************************************************************
+
+// None
+
+// ****************************************************************************
+//
+// Public Types
+//
+// ****************************************************************************
+
+/// The HTTP Method.
+/// Every HTTP request has a method - GET is the most comment.
 #[derive(Debug, PartialEq, Copy, Clone)]
 pub enum HttpMethod {
     GET,
@@ -12,11 +28,17 @@ pub enum HttpMethod {
     HEAD,
 }
 
+/// An HTTP Request.
+/// Fully describes the HTTP request sent from the client to the server.
 #[derive(Debug)]
 pub struct HttpRequest {
+    /// The URL the client is requesting
     pub url: String,
+    /// The method the client is requesting
     pub method: HttpMethod,
+    /// The protocol the client is using in the request
     pub protocol: String,
+    /// Any headers supplied by the client in the request
     pub headers: Vec<(String, String)>,
 }
 
@@ -51,6 +73,12 @@ pub enum ParseResult {
     Complete(HttpRequest),
 }
 
+// ****************************************************************************
+//
+// Private Types
+//
+// ****************************************************************************
+
 #[derive(PartialEq, Debug)]
 enum ParseState {
     Method,
@@ -77,10 +105,16 @@ enum CharType {
     NL,
 }
 
-impl Default for ParseContext {
+// ****************************************************************************
+//
+// Public Functions
+//
+// ****************************************************************************
+
+impl ParseContext {
     /// Ensures a default ParseContext can be created and that it has the correct
     /// starting values for a parse.
-    fn default() -> ParseContext {
+    pub fn new() -> ParseContext {
         ParseContext {
             state: ParseState::Method,
             temp: Vec::new(),
@@ -91,9 +125,7 @@ impl Default for ParseContext {
             key: String::new(),
         }
     }
-}
 
-impl ParseContext {
     /// Perform the HTTP parse.
     /// This reads the buffer octet by octet, collating strings into
     /// temporary vectors. If any sort of error occurs, we bail out.
@@ -168,7 +200,7 @@ impl ParseContext {
                             self.temp.push(c);
                             self.state = ParseState::Key
                         }
-                        _ => return ParseResult::Error
+                        _ => return ParseResult::Error,
                     }
                 }
                 ParseState::Key => {
@@ -219,35 +251,33 @@ impl ParseContext {
                 }
                 ParseState::WrappedValueStart => {
                     match ct {
-                        CharType::Space => { },
+                        CharType::Space => {}
                         CharType::Other | CharType::Colon => {
                             self.temp.push(0x20); // single space
                             self.temp.push(c);
                             self.state = ParseState::WrappedValue
                         }
                         CharType::CR => self.state = ParseState::WrappedValueEOL,
-                        _ => return ParseResult::Error
+                        _ => return ParseResult::Error,
                     }
                 }
                 ParseState::WrappedValue => {
                     match ct {
-                        CharType::Other | CharType::Colon | CharType::Space => {
-                            self.temp.push(c)
-                        }
+                        CharType::Other | CharType::Colon | CharType::Space => self.temp.push(c),
                         CharType::CR => {
                             match String::from_utf8(self.temp.split_off(0)) {
                                 Ok(s) => {
                                     match self.headers.last_mut() {
                                         Some(x) => x.1.push_str(s.as_str()),
-                                        None => return ParseResult::Error
+                                        None => return ParseResult::Error,
                                     }
                                     println!("Appended {:?}", s);
-                                },
-                                _ => return ParseResult::Error
+                                }
+                                _ => return ParseResult::Error,
                             }
                             self.state = ParseState::WrappedValueEOL
-                        },
-                        _ => return ParseResult::Error
+                        }
+                        _ => return ParseResult::Error,
                     }
                 }
                 ParseState::WrappedValueEOL => {
@@ -276,18 +306,11 @@ impl ParseContext {
     }
 }
 
-/// ////////////////////////////////////////////////////////////////////////////
-///
-/// Private Functions
-///
-/// ////////////////////////////////////////////////////////////////////////////
-
-/// Allows us to create ParseState objects which default to the first state.
-impl Default for ParseState {
-    fn default() -> ParseState {
-        ParseState::Method
-    }
-}
+// ****************************************************************************
+//
+// Private Functions
+//
+// ****************************************************************************
 
 /// Map an octet (in US-ASCII) to a character
 /// class, so we can decide what to do with it.
@@ -304,3 +327,9 @@ fn get_char_type(b: u8) -> CharType {
         CharType::Other
     }
 }
+
+// ****************************************************************************
+//
+// End Of File
+//
+// ****************************************************************************

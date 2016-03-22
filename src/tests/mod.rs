@@ -2,11 +2,40 @@
 //!
 //! Unit tests for the rushttp library.
 
+// ****************************************************************************
+//
+// Imports
+//
+// ****************************************************************************
+
 use http_parser::*;
+
+
+// ****************************************************************************
+//
+// Public Types
+//
+// ****************************************************************************
+
+// None
+
+// ****************************************************************************
+//
+// Private Types
+//
+// ****************************************************************************
+
+// None
+
+// ****************************************************************************
+//
+// Public Functions
+//
+// ****************************************************************************
 
 #[test]
 fn get_complete_header() {
-    let mut ctx: ParseContext = Default::default();
+    let mut ctx = ParseContext::new();
     let test = "GET /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost: localhost\r\n\r\n"
                    .as_bytes();
     match ctx.parse_header(test) {
@@ -15,8 +44,10 @@ fn get_complete_header() {
             assert_eq!(r.url, "/index.html");
             assert_eq!(r.protocol, "HTTP/1.1");
             assert_eq!(r.headers.len(), 2);
-            assert_eq!(r.headers[0], (String::from("User-Agent"), String::from("rust test")));
-            assert_eq!(r.headers[1], (String::from("Host"), String::from("localhost")));
+            assert_eq!(r.headers[0],
+                       (String::from("User-Agent"), String::from("rust test")));
+            assert_eq!(r.headers[1],
+                       (String::from("Host"), String::from("localhost")));
         }
         _ => assert!(false),
     }
@@ -24,8 +55,9 @@ fn get_complete_header() {
 
 #[test]
 fn get_complete_wrapped_header() {
-    let mut ctx: ParseContext = Default::default();
-    let test = "GET /index.html HTTP/1.1\r\nUser-Agent: rust test\r\n\t\tis the best test\r\nHost: localhost\r\n\r\n"
+    let mut ctx = ParseContext::new();
+    let test = "GET /index.html HTTP/1.1\r\nUser-Agent: rust test\r\n\t\tis the best \
+                test\r\nHost: localhost\r\n\r\n"
                    .as_bytes();
     match ctx.parse_header(test) {
         ParseResult::Complete(r) => {
@@ -33,8 +65,11 @@ fn get_complete_wrapped_header() {
             assert_eq!(r.url, "/index.html");
             assert_eq!(r.protocol, "HTTP/1.1");
             assert_eq!(r.headers.len(), 2);
-            assert_eq!(r.headers[0], (String::from("User-Agent"), String::from("rust test is the best test")));
-            assert_eq!(r.headers[1], (String::from("Host"), String::from("localhost")));
+            assert_eq!(r.headers[0],
+                       (String::from("User-Agent"),
+                        String::from("rust test is the best test")));
+            assert_eq!(r.headers[1],
+                       (String::from("Host"), String::from("localhost")));
         }
         _ => assert!(false),
     }
@@ -42,7 +77,7 @@ fn get_complete_wrapped_header() {
 
 #[test]
 fn put_complete_header() {
-    let mut ctx: ParseContext = Default::default();
+    let mut ctx = ParseContext::new();
     let test = "PUT /v1/api/frob?foo=bar HTTP/1.0\r\nUser-Agent: rust test\r\nHost: \
                 localhost\r\n\r\n"
                    .as_bytes();
@@ -52,8 +87,10 @@ fn put_complete_header() {
             assert_eq!(r.url, "/v1/api/frob?foo=bar");
             assert_eq!(r.protocol, "HTTP/1.0");
             assert_eq!(r.headers.len(), 2);
-            assert_eq!(r.headers[0], (String::from("User-Agent"), String::from("rust test")));
-            assert_eq!(r.headers[1], (String::from("Host"), String::from("localhost")));
+            assert_eq!(r.headers[0],
+                       (String::from("User-Agent"), String::from("rust test")));
+            assert_eq!(r.headers[1],
+                       (String::from("Host"), String::from("localhost")));
         }
         _ => assert!(false),
     }
@@ -61,7 +98,7 @@ fn put_complete_header() {
 
 #[test]
 fn incomplete_header() {
-    let mut ctx: ParseContext = Default::default();
+    let mut ctx = ParseContext::new();
     let test = "GET /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost: localhost\r\n"
                    .as_bytes();
     match ctx.parse_header(test) {
@@ -72,7 +109,7 @@ fn incomplete_header() {
 
 #[test]
 fn bad_method() {
-    let mut ctx: ParseContext = Default::default();
+    let mut ctx = ParseContext::new();
     let test = "GETA /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost: localhost\r\n"
                    .as_bytes();
     match ctx.parse_header(test) {
@@ -83,10 +120,24 @@ fn bad_method() {
 
 #[test]
 fn bad_header() {
-    let mut ctx: ParseContext = Default::default();
+    let mut ctx = ParseContext::new();
     let test = "GETA /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost\r\n\r\n".as_bytes();
     match ctx.parse_header(test) {
         ParseResult::Error => {}
         _ => assert!(false),
     }
 }
+
+// ****************************************************************************
+//
+// Private Functions
+//
+// ****************************************************************************
+
+// None
+
+// ****************************************************************************
+//
+// End Of File
+//
+// ****************************************************************************
