@@ -36,10 +36,10 @@ use http_parser::*;
 #[test]
 fn get_complete_header() {
     let mut ctx = ParseContext::new();
-    let test = "GET /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost: localhost\r\n\r\n"
-                   .as_bytes();
+    let test = b"GET /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost: localhost\r\n\r\n";
     match ctx.parse_header(test) {
-        ParseResult::Complete(r) => {
+        ParseResult::Complete(r, c) => {
+            assert_eq!(test.len() - c, 0);
             assert_eq!(r.method, HttpMethod::GET);
             assert_eq!(r.url, "/index.html");
             assert_eq!(r.protocol, "HTTP/1.1");
@@ -54,11 +54,11 @@ fn get_complete_header() {
 #[test]
 fn get_complete_wrapped_header() {
     let mut ctx = ParseContext::new();
-    let test = "GET /index.html HTTP/1.1\r\nUser-Agent: rust test\r\n\t\tis the best \
-                test\r\nHost: localhost\r\n\r\n"
-                   .as_bytes();
+    let test = b"GET /index.html HTTP/1.1\r\nUser-Agent: rust test\r\n\t\tis the best \
+                test\r\nHost: localhost\r\n\r\n";
     match ctx.parse_header(test) {
-        ParseResult::Complete(r) => {
+        ParseResult::Complete(r, c) => {
+            assert_eq!(test.len() - c, 0);
             assert_eq!(r.method, HttpMethod::GET);
             assert_eq!(r.url, "/index.html");
             assert_eq!(r.protocol, "HTTP/1.1");
@@ -74,14 +74,16 @@ fn get_complete_wrapped_header() {
 fn put_complete_header() {
     let mut ctx = ParseContext::new();
     let test = "PUT /v1/api/frob?foo=bar HTTP/1.0\r\nUser-Agent: rust test\r\nHost: \
-                localhost\r\n\r\n"
+                localhost\r\nContent-Length: 12\r\n\r\nFlibble 💖"
                    .as_bytes();
     match ctx.parse_header(test) {
-        ParseResult::Complete(r) => {
+        ParseResult::Complete(r, c) => {
+            assert_eq!(test.len() - c, 12);
             assert_eq!(r.method, HttpMethod::PUT);
             assert_eq!(r.url, "/v1/api/frob?foo=bar");
             assert_eq!(r.protocol, "HTTP/1.0");
-            assert_eq!(r.headers.len(), 2);
+            assert_eq!(r.headers.len(), 3);
+            assert_eq!(r.headers["Content-Length"], String::from("12"));
             assert_eq!(r.headers["User-Agent"], String::from("rust test"));
             assert_eq!(r.headers["Host"], String::from("localhost"));
         }

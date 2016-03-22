@@ -71,8 +71,10 @@ pub enum ParseResult {
     Error,
     /// Parse in progress - need more input
     InProgress,
-    /// Parse complete - request object available
-    Complete(HttpRequest),
+    /// Parse complete - request object available, and we also report
+    /// the number of octets taken from the given buffer. If there
+    /// are any octets remaining, they are probably body content.
+    Complete(HttpRequest, usize),
 }
 
 // ****************************************************************************
@@ -132,8 +134,10 @@ impl ParseContext {
     /// This reads the buffer octet by octet, collating strings into
     /// temporary vectors. If any sort of error occurs, we bail out.
     pub fn parse_header(&mut self, buffer: &[u8]) -> ParseResult {
+        let mut read = 0;
         for b in buffer {
             let c = *b;
+            read = read + 1;
             let ct = get_char_type(c);
             // switch on state, then switch on char type
             match self.state {
@@ -153,11 +157,11 @@ impl ParseContext {
                                     };
                                     println!("Got method {:?}", self.method)
                                 }
-                                _ => return ParseResult::Error,
+                                Err(_) => return ParseResult::Error,
                             }
                             self.state = ParseState::URL
                         }
-                        _ => return ParseResult::Error,
+                        CharType::Colon | CharType::CR | CharType::NL => return ParseResult::Error,
                     }
                 }
                 ParseState::URL => {
@@ -166,12 +170,12 @@ impl ParseContext {
                         CharType::Space => {
                             match String::from_utf8(self.temp.split_off(0)) {
                                 Ok(s) => self.url = s,
-                                _ => return ParseResult::Error,
+                                Err(_) => return ParseResult::Error,
                             }
                             println!("Got URL {:?}", self.url);
                             self.state = ParseState::Version
                         }
-                        _ => return ParseResult::Error,
+                        CharType::CR | CharType::NL => return ParseResult::Error,
                     }
                 }
                 ParseState::Version => {
@@ -180,12 +184,12 @@ impl ParseContext {
                         CharType::CR => {
                             match String::from_utf8(self.temp.split_off(0)) {
                                 Ok(s) => self.protocol = s,
-                                _ => return ParseResult::Error,
+                                Err(_) => return ParseResult::Error,
                             }
                             println!("Got protocol {:?}", self.protocol);
                             self.state = ParseState::VersionEOL
                         }
-                        _ => return ParseResult::Error,
+                        CharType::Space | CharType::NL | CharType::Colon => return ParseResult::Error,
                     }
                 }
                 ParseState::VersionEOL => {
@@ -202,7 +206,7 @@ impl ParseContext {
                             self.temp.push(c);
                             self.state = ParseState::Key
                         }
-                        _ => return ParseResult::Error,
+                        CharType::Colon | CharType::NL => return ParseResult::Error,
                     }
                 }
                 ParseState::Key => {
@@ -211,11 +215,11 @@ impl ParseContext {
                         CharType::Colon => {
                             match String::from_utf8(self.temp.split_off(0)) {
                                 Ok(s) => self.key = s,
-                                _ => return ParseResult::Error,
+                                Err(_) => return ParseResult::Error,
                             }
                             self.state = ParseState::ValueStart
                         }
-                        _ => return ParseResult::Error,
+                        CharType::Space | CharType::NL | CharType::CR => return ParseResult::Error,
                     }
                 }
                 ParseState::ValueStart => {
@@ -225,7 +229,7 @@ impl ParseContext {
                             self.temp.push(c);
                             self.state = ParseState::Value
                         }
-                        _ => return ParseResult::Error,
+                        CharType::NL | CharType::CR | CharType::Colon => return ParseResult::Error,
                     }
                 }
                 ParseState::Value => {
@@ -238,11 +242,11 @@ impl ParseContext {
                                     println!("Got header {:?}", hdr);
                                     self.headers.push(hdr);
                                 }
-                                _ => return ParseResult::Error,
+                                Err(_) => return ParseResult::Error,
                             }
                             self.state = ParseState::ValueEOL
                         }
-                        _ => return ParseResult::Error,
+                        CharType::NL => return ParseResult::Error,
                     }
                 }
                 ParseState::ValueEOL => {
@@ -260,7 +264,7 @@ impl ParseContext {
                             self.state = ParseState::WrappedValue
                         }
                         CharType::CR => self.state = ParseState::WrappedValueEOL,
-                        _ => return ParseResult::Error,
+                        CharType::NL => return ParseResult::Error,
                     }
                 }
                 ParseState::WrappedValue => {
@@ -275,11 +279,11 @@ impl ParseContext {
                                     }
                                     println!("Appended {:?}", s);
                                 }
-                                _ => return ParseResult::Error,
+                                Err(_) => return ParseResult::Error,
                             }
                             self.state = ParseState::WrappedValueEOL
                         }
-                        _ => return ParseResult::Error,
+                        CharType::NL => return ParseResult::Error,
                     }
                 }
                 ParseState::WrappedValueEOL => {
@@ -300,7 +304,7 @@ impl ParseContext {
                             for (k, v) in self.headers.drain(..) {
                                 r.headers.insert(k, v);
                             }
-                            return ParseResult::Complete(r);
+                            return ParseResult::Complete(r, read);
                         }
                         _ => return ParseResult::Error,
                     }
