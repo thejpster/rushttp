@@ -73,7 +73,11 @@ fn get_complete_wrapped_header() {
 #[test]
 fn put_complete_header() {
     let mut ctx = ParseContext::new();
-    let test = "PUT /v1/api/frob?foo=bar HTTP/1.0\r\nUser-Agent: rust test\r\nHost: \
+    match ctx.parse_header(b"PUT ") {
+        ParseResult::InProgress => {},
+        _ => panic!()
+    }
+    let test = "/v1/api/frob?foo=bar HTTP/1.0\r\nUser-Agent: rust test\r\nHost: \
                 localhost\r\nContent-Length: 12\r\n\r\nFlibble 💖"
                    .as_bytes();
     match ctx.parse_header(test) {
@@ -86,6 +90,8 @@ fn put_complete_header() {
             assert_eq!(r.headers["Content-Length"], String::from("12"));
             assert_eq!(r.headers["User-Agent"], String::from("rust test"));
             assert_eq!(r.headers["Host"], String::from("localhost"));
+            let r = r.get_content_length().unwrap();
+            assert_eq!(r, 12);
         }
         _ => assert!(false),
     }
