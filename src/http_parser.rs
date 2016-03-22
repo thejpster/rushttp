@@ -118,145 +118,147 @@ impl Default for ParseContext {
 	}
 }
 
-/// Perform the HTTP parse. The first time, supply a default ParseContext
-/// object. Subsequently, supply the same object again.
-pub fn parse_header(ctx: &mut ParseContext, buffer: &[u8]) -> ParseResult {
-	for b in buffer {
-		let c = *b;
-		let ct = get_char_type(c);
-		println!("Got char type {:?} in state {:?}", ct, ctx.state);
-		// switch on state, then switch on char type
-		match ctx.state {
-			ParseState::Method => {
-				match ct {
-					CharType::Other => ctx.temp.push(c),
-					CharType::Space => {
-						match String::from_utf8(ctx.temp.split_off(0)) {
-							Ok(s) => {
-								match s.as_str() {
-									"GET" => ctx.method = HttpMethod::GET,
-									"POST" => ctx.method = HttpMethod::POST,
-									"PUT" => ctx.method = HttpMethod::PUT,
-									"OPTION" => ctx.method = HttpMethod::OPTION,
-									"HEAD" => ctx.method = HttpMethod::HEAD,
-									_ => return ParseResult::Error
-								}
-								println!("Got method {:?}", ctx.method)
-							},
-							_ => return ParseResult::Error
-						}
-						ctx.state = ParseState::URL
-					},
-					_ => return ParseResult::Error
-				}
-			},
-			ParseState::URL => {
-				match ct {
-					CharType::Other | CharType::Colon=> ctx.temp.push(c),
-					CharType::Space => {
-						match String::from_utf8(ctx.temp.split_off(0)) {
-							Ok(s) => ctx.url = s,
-							_ => return ParseResult::Error
-						}
-						println!("Got URL {:?}", ctx.url);
-						ctx.state = ParseState::Version
+impl ParseContext {
+	/// Perform the HTTP parse. The first time, supply a default ParseContext
+	/// object. Subsequently, supply the same object again.
+	pub fn parse_header(&mut self, buffer: &[u8]) -> ParseResult {
+		for b in buffer {
+			let c = *b;
+			let ct = get_char_type(c);
+			println!("Got char type {:?} in state {:?}", ct, self.state);
+			// switch on state, then switch on char type
+			match self.state {
+				ParseState::Method => {
+					match ct {
+						CharType::Other => self.temp.push(c),
+						CharType::Space => {
+							match String::from_utf8(self.temp.split_off(0)) {
+								Ok(s) => {
+									match s.as_str() {
+										"GET" => self.method = HttpMethod::GET,
+										"POST" => self.method = HttpMethod::POST,
+										"PUT" => self.method = HttpMethod::PUT,
+										"OPTION" => self.method = HttpMethod::OPTION,
+										"HEAD" => self.method = HttpMethod::HEAD,
+										_ => return ParseResult::Error
+									}
+									println!("Got method {:?}", self.method)
+								},
+								_ => return ParseResult::Error
+							}
+							self.state = ParseState::URL
+						},
+						_ => return ParseResult::Error
 					}
-					_ => return ParseResult::Error
-				}
-			},
-			ParseState::Version => {
-				match ct {
-					CharType::Other => ctx.temp.push(c),
-					CharType::CR => {
-						match String::from_utf8(ctx.temp.split_off(0)) {
-							Ok(s) => ctx.protocol = s,
-							_ => return ParseResult::Error
+				},
+				ParseState::URL => {
+					match ct {
+						CharType::Other | CharType::Colon=> self.temp.push(c),
+						CharType::Space => {
+							match String::from_utf8(self.temp.split_off(0)) {
+								Ok(s) => self.url = s,
+								_ => return ParseResult::Error
+							}
+							println!("Got URL {:?}", self.url);
+							self.state = ParseState::Version
 						}
-						println!("Got protocol {:?}", ctx.protocol);
-						ctx.state = ParseState::VersionEOL
+						_ => return ParseResult::Error
 					}
-					_ => return ParseResult::Error
-				}
-			},
-			ParseState::VersionEOL => {
-				match ct {
-					CharType::NL => ctx.state = ParseState::KeyStart,
-					_ => return ParseResult::Error
-				}
-			},
-			ParseState::KeyStart => {
-				match ct {
-					CharType::CR => ctx.state = ParseState::FinalEOL,
-					CharType::Other => {
-						ctx.temp.push(c);
-						ctx.state = ParseState::Key
-					},
-					_ => return ParseResult::Error
-				}
-			},
-			ParseState::Key => {
-				match ct {
-					CharType::Other => ctx.temp.push(c),
-					CharType::Colon => {
-						match String::from_utf8(ctx.temp.split_off(0)) {
-							Ok(s) => ctx.key = s,
-							_ => return ParseResult::Error
+				},
+				ParseState::Version => {
+					match ct {
+						CharType::Other => self.temp.push(c),
+						CharType::CR => {
+							match String::from_utf8(self.temp.split_off(0)) {
+								Ok(s) => self.protocol = s,
+								_ => return ParseResult::Error
+							}
+							println!("Got protocol {:?}", self.protocol);
+							self.state = ParseState::VersionEOL
 						}
-						ctx.state = ParseState::ValueStart
+						_ => return ParseResult::Error
 					}
-					_ => return ParseResult::Error
-				}
-			},
-			ParseState::ValueStart => {
-				match ct {
-					CharType::Space => { },
-					CharType::Other => {
-						ctx.temp.push(c);
-						ctx.state = ParseState::Value
-					},
-					_ => return ParseResult::Error
-				}
-			},
-			ParseState::Value => {
-				match ct {
-					CharType::Other | CharType::Space | CharType::Colon => ctx.temp.push(c),
-					CharType::CR => {
-						match String::from_utf8(ctx.temp.split_off(0)) {
-							Ok(s) => {
-								let hdr:HttpHeader = HttpHeader::Unknown { key: ctx.key.clone(), value: s };
-								println!("Got header {:?}", hdr);
-								ctx.headers.push(hdr);
-							},
-							_ => return ParseResult::Error
+				},
+				ParseState::VersionEOL => {
+					match ct {
+						CharType::NL => self.state = ParseState::KeyStart,
+						_ => return ParseResult::Error
+					}
+				},
+				ParseState::KeyStart => {
+					match ct {
+						CharType::CR => self.state = ParseState::FinalEOL,
+						CharType::Other => {
+							self.temp.push(c);
+							self.state = ParseState::Key
+						},
+						_ => return ParseResult::Error
+					}
+				},
+				ParseState::Key => {
+					match ct {
+						CharType::Other => self.temp.push(c),
+						CharType::Colon => {
+							match String::from_utf8(self.temp.split_off(0)) {
+								Ok(s) => self.key = s,
+								_ => return ParseResult::Error
+							}
+							self.state = ParseState::ValueStart
 						}
-						ctx.state = ParseState::ValueEOL
+						_ => return ParseResult::Error
 					}
-					_ => return ParseResult::Error
-				}
-			},
-			ParseState::ValueEOL => {
-				match ct {
-					CharType::NL => ctx.state = ParseState::KeyStart,
-					_ => return ParseResult::Error
-				}
-			},
-			ParseState::FinalEOL => {
-				match ct {
-					CharType::NL => {
-						let r: HttpRequest = HttpRequest {
-							url: ctx.url.clone(),
-							method: ctx.method.clone(),
-							protocol: ctx.protocol.clone(),
-							headers: ctx.headers.split_off(0),
-						};
-						return ParseResult::Complete(r);
-					},
-					_ => return ParseResult::Error
+				},
+				ParseState::ValueStart => {
+					match ct {
+						CharType::Space => { },
+						CharType::Other => {
+							self.temp.push(c);
+							self.state = ParseState::Value
+						},
+						_ => return ParseResult::Error
+					}
+				},
+				ParseState::Value => {
+					match ct {
+						CharType::Other | CharType::Space | CharType::Colon => self.temp.push(c),
+						CharType::CR => {
+							match String::from_utf8(self.temp.split_off(0)) {
+								Ok(s) => {
+									let hdr:HttpHeader = HttpHeader::Unknown { key: self.key.clone(), value: s };
+									println!("Got header {:?}", hdr);
+									self.headers.push(hdr);
+								},
+								_ => return ParseResult::Error
+							}
+							self.state = ParseState::ValueEOL
+						}
+						_ => return ParseResult::Error
+					}
+				},
+				ParseState::ValueEOL => {
+					match ct {
+						CharType::NL => self.state = ParseState::KeyStart,
+						_ => return ParseResult::Error
+					}
+				},
+				ParseState::FinalEOL => {
+					match ct {
+						CharType::NL => {
+							let r: HttpRequest = HttpRequest {
+								url: self.url.clone(),
+								method: self.method.clone(),
+								protocol: self.protocol.clone(),
+								headers: self.headers.split_off(0),
+							};
+							return ParseResult::Complete(r);
+						},
+						_ => return ParseResult::Error
+					}
 				}
 			}
 		}
+		ParseResult::InProgress
 	}
-	ParseResult::InProgress
 }
 
 ///////////////////////////////////////////////////////////////////////////////

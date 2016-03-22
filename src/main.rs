@@ -18,7 +18,7 @@ fn read_request(stream: &mut TcpStream) -> Option<HttpRequest> {
         match stream.read(&mut buffer) {
             Ok(len) => {
                 println!("I got {len} chars", len=len);
-                match parse_header(&mut ctx, &buffer) {
+                match ctx.parse_header(&buffer) {
                     ParseResult::Complete(r) => {
                         println!("Got request {:?}", r);
                         result = Some(r);

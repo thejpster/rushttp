@@ -8,7 +8,7 @@ use http_parser::*;
 fn get_complete_header() {
     let mut ctx:ParseContext = Default::default();
     let test = "GET /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost: localhost\r\n\r\n".as_bytes();
-    match parse_header(&mut ctx, test) {
+    match ctx.parse_header(test) {
         ParseResult::Complete(r) => {
             assert_eq!(r.method, HttpMethod::GET);
             assert_eq!(r.url, "/index.html");
@@ -25,7 +25,7 @@ fn get_complete_header() {
 fn put_complete_header() {
     let mut ctx:ParseContext = Default::default();
     let test = "PUT /v1/api/frob?foo=bar HTTP/1.0\r\nUser-Agent: rust test\r\nHost: localhost\r\n\r\n".as_bytes();
-    match parse_header(&mut ctx, test) {
+    match ctx.parse_header(test) {
         ParseResult::Complete(r) => {
             assert_eq!(r.method, HttpMethod::PUT);
             assert_eq!(r.url, "/v1/api/frob?foo=bar");
@@ -42,7 +42,7 @@ fn put_complete_header() {
 fn incomplete_header() {
     let mut ctx:ParseContext = Default::default();
     let test = "GET /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost: localhost\r\n".as_bytes();
-    match parse_header(&mut ctx, test) {
+    match ctx.parse_header(test) {
         ParseResult::InProgress => { },
         _ => assert!(false)
     }
@@ -52,7 +52,7 @@ fn incomplete_header() {
 fn bad_method() {
     let mut ctx:ParseContext = Default::default();
     let test = "GETA /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost: localhost\r\n".as_bytes();
-    match parse_header(&mut ctx, test) {
+    match ctx.parse_header(test) {
         ParseResult::Error => { },
         _ => assert!(false)
     }
@@ -62,7 +62,7 @@ fn bad_method() {
 fn bad_header() {
     let mut ctx:ParseContext = Default::default();
     let test = "GETA /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost\r\n\r\n".as_bytes();
-    match parse_header(&mut ctx, test) {
+    match ctx.parse_header(test) {
         ParseResult::Error => { },
         _ => assert!(false)
     }
