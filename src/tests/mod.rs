@@ -44,10 +44,8 @@ fn get_complete_header() {
             assert_eq!(r.url, "/index.html");
             assert_eq!(r.protocol, "HTTP/1.1");
             assert_eq!(r.headers.len(), 2);
-            assert_eq!(r.headers[0],
-                       (String::from("User-Agent"), String::from("rust test")));
-            assert_eq!(r.headers[1],
-                       (String::from("Host"), String::from("localhost")));
+            assert_eq!(r.headers["User-Agent"], String::from("rust test"));
+            assert_eq!(r.headers["Host"], String::from("localhost"));
         }
         _ => assert!(false),
     }
@@ -65,11 +63,8 @@ fn get_complete_wrapped_header() {
             assert_eq!(r.url, "/index.html");
             assert_eq!(r.protocol, "HTTP/1.1");
             assert_eq!(r.headers.len(), 2);
-            assert_eq!(r.headers[0],
-                       (String::from("User-Agent"),
-                        String::from("rust test is the best test")));
-            assert_eq!(r.headers[1],
-                       (String::from("Host"), String::from("localhost")));
+            assert_eq!(r.headers["User-Agent"], String::from("rust test is the best test"));
+            assert_eq!(r.headers["Host"], String::from("localhost"));
         }
         _ => assert!(false),
     }
@@ -87,10 +82,8 @@ fn put_complete_header() {
             assert_eq!(r.url, "/v1/api/frob?foo=bar");
             assert_eq!(r.protocol, "HTTP/1.0");
             assert_eq!(r.headers.len(), 2);
-            assert_eq!(r.headers[0],
-                       (String::from("User-Agent"), String::from("rust test")));
-            assert_eq!(r.headers[1],
-                       (String::from("Host"), String::from("localhost")));
+            assert_eq!(r.headers["User-Agent"], String::from("rust test"));
+            assert_eq!(r.headers["Host"], String::from("localhost"));
         }
         _ => assert!(false),
     }

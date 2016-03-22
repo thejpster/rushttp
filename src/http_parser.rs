@@ -9,7 +9,7 @@
 //
 // ****************************************************************************
 
-// None
+use std::collections::HashMap;
 
 // ****************************************************************************
 //
@@ -39,7 +39,7 @@ pub struct HttpRequest {
     /// The protocol the client is using in the request
     pub protocol: String,
     /// Any headers supplied by the client in the request
-    pub headers: Vec<(String, String)>,
+    pub headers: HashMap<String, String>,
 }
 
 /// Contains the internal state for the parser. Must be given
@@ -56,7 +56,9 @@ pub struct ParseContext {
     method: HttpMethod,
     /// The protocol in the request
     protocol: String,
-    /// A collection of HTTP headers (key,value) pairs
+    /// A collection of HTTP headers (key,value) pairs. We need them in-order
+    /// as if the next line begins with a space, we need to append to the
+    /// previous header's value.
     headers: Vec<(String, String)>,
     /// A temporary holder for the key while we read the value
     key: String,
@@ -289,12 +291,15 @@ impl ParseContext {
                 ParseState::FinalEOL => {
                     match ct {
                         CharType::NL => {
-                            let r: HttpRequest = HttpRequest {
+                            let mut r: HttpRequest = HttpRequest {
                                 url: self.url.clone(),
                                 method: self.method.clone(),
                                 protocol: self.protocol.clone(),
-                                headers: self.headers.split_off(0),
+                                headers: HashMap::new(),
                             };
+                            for (k, v) in self.headers.drain(..) {
+                                r.headers.insert(k, v);
+                            }
                             return ParseResult::Complete(r);
                         }
                         _ => return ParseResult::Error,
