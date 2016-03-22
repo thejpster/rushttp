@@ -20,7 +20,7 @@ pub enum HttpMethod {
 	HEAD
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum HttpHeader {
 	//More common header types here. Is this useful?
 	//CharSet(String),
@@ -81,6 +81,7 @@ enum ParseState {
 	VersionEOL,
 	KeyStart,
 	Key,
+	ValueStart,
 	Value,
 	ValueEOL,
 	FinalEOL
@@ -101,6 +102,8 @@ enum CharType {
 //
 ///////////////////////////////////////////////////////////////////////////////
 
+/// Ensures a default ParseContext can be created and that it has the correct
+/// starting values for a parse.
 impl Default for ParseContext {
 	fn default() -> ParseContext {
 		ParseContext {
@@ -119,13 +122,14 @@ impl Default for ParseContext {
 /// object. Subsequently, supply the same object again.
 pub fn parse_header(ctx: &mut ParseContext, buffer: &[u8]) -> ParseResult {
 	for b in buffer {
-		let ct = get_char_type(*b);
+		let c = *b;
+		let ct = get_char_type(c);
 		println!("Got char type {:?} in state {:?}", ct, ctx.state);
 		// switch on state, then switch on char type
 		match ctx.state {
 			ParseState::Method => {
 				match ct {
-					CharType::Other => ctx.temp.push(*b),
+					CharType::Other => ctx.temp.push(c),
 					CharType::Space => {
 						match String::from_utf8(ctx.temp.split_off(0)) {
 							Ok(s) => {
@@ -148,8 +152,7 @@ pub fn parse_header(ctx: &mut ParseContext, buffer: &[u8]) -> ParseResult {
 			},
 			ParseState::URL => {
 				match ct {
-					CharType::Other => ctx.temp.push(*b),
-					CharType::Colon => ctx.temp.push(*b),
+					CharType::Other | CharType::Colon=> ctx.temp.push(c),
 					CharType::Space => {
 						match String::from_utf8(ctx.temp.split_off(0)) {
 							Ok(s) => ctx.url = s,
@@ -163,7 +166,7 @@ pub fn parse_header(ctx: &mut ParseContext, buffer: &[u8]) -> ParseResult {
 			},
 			ParseState::Version => {
 				match ct {
-					CharType::Other => ctx.temp.push(*b),
+					CharType::Other => ctx.temp.push(c),
 					CharType::CR => {
 						match String::from_utf8(ctx.temp.split_off(0)) {
 							Ok(s) => ctx.protocol = s,
@@ -185,7 +188,7 @@ pub fn parse_header(ctx: &mut ParseContext, buffer: &[u8]) -> ParseResult {
 				match ct {
 					CharType::CR => ctx.state = ParseState::FinalEOL,
 					CharType::Other => {
-						ctx.temp.push(*b);
+						ctx.temp.push(c);
 						ctx.state = ParseState::Key
 					},
 					_ => return ParseResult::Error
@@ -193,22 +196,30 @@ pub fn parse_header(ctx: &mut ParseContext, buffer: &[u8]) -> ParseResult {
 			},
 			ParseState::Key => {
 				match ct {
-					CharType::Other => ctx.temp.push(*b),
+					CharType::Other => ctx.temp.push(c),
 					CharType::Colon => {
 						match String::from_utf8(ctx.temp.split_off(0)) {
 							Ok(s) => ctx.key = s,
 							_ => return ParseResult::Error
 						}
-						ctx.state = ParseState::Value
+						ctx.state = ParseState::ValueStart
 					}
+					_ => return ParseResult::Error
+				}
+			},
+			ParseState::ValueStart => {
+				match ct {
+					CharType::Space => { },
+					CharType::Other => {
+						ctx.temp.push(c);
+						ctx.state = ParseState::Value
+					},
 					_ => return ParseResult::Error
 				}
 			},
 			ParseState::Value => {
 				match ct {
-					CharType::Other => ctx.temp.push(*b),
-					CharType::Space => ctx.temp.push(*b),
-					CharType::Colon => ctx.temp.push(*b),
+					CharType::Other | CharType::Space | CharType::Colon => ctx.temp.push(c),
 					CharType::CR => {
 						match String::from_utf8(ctx.temp.split_off(0)) {
 							Ok(s) => {
