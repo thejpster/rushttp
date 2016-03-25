@@ -10,6 +10,7 @@
 // ****************************************************************************
 
 use std::collections::HashMap;
+use std::fmt;
 
 // ****************************************************************************
 //
@@ -17,12 +18,12 @@ use std::collections::HashMap;
 //
 // ****************************************************************************
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum HttpResponseStatus {
     Continue = 100,
     SwitchingProtocols = 101,
     Processing = 102,
-    Ok = 200,
+    OK = 200,
     Created = 201,
     Accepted = 202,
     NonAuthoritativeInformation = 203,
@@ -116,8 +117,84 @@ pub struct HttpResponseRenderer {
 //
 // ****************************************************************************
 
-// None
+impl fmt::Display for HttpResponseStatus {
+    // This trait requires `fmt` with this exact signature.
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        // Write strictly the first element into the supplied output
+        // stream: `f`. Returns `fmt::Result` which indicates whether the
+        // operation succeeded or failed. Note that `write!` uses syntax which
+        // is very similar to `println!`.
+        write!(f, "{} {}", *self as u32, self.as_string())
+    }
+}
 
+impl HttpResponseStatus {
+    pub fn as_string(&self) -> &str {
+        match *self {
+            HttpResponseStatus::Continue => "Continue",
+            HttpResponseStatus::SwitchingProtocols => "Switching Protocols",
+            HttpResponseStatus::Processing => "Processing",
+            HttpResponseStatus::OK => "OK",
+            HttpResponseStatus::Created => "Created",
+            HttpResponseStatus::Accepted => "Accepted",
+            HttpResponseStatus::NonAuthoritativeInformation => "Non-Authoritative Information",
+            HttpResponseStatus::NoContent => "No Content",
+            HttpResponseStatus::ResetContent => "Reset Content",
+            HttpResponseStatus::PartialContent => "Partial Content",
+            HttpResponseStatus::MultiStatus => "Multi Status",
+            HttpResponseStatus::AlreadyReported => "Already Reported",
+            HttpResponseStatus::ImUsed => "IM Used",
+            HttpResponseStatus::MultipleChoices => "Multiple Choices",
+            HttpResponseStatus::MovedPermanently => "Moved Permanently",
+            HttpResponseStatus::Found => "Found",
+            HttpResponseStatus::SeeOther => "See Other",
+            HttpResponseStatus::NotModified => "Not odified",
+            HttpResponseStatus::UseProxy => "Use Proxy",
+            HttpResponseStatus::SwitchProxy => "Switch Proxy",
+            HttpResponseStatus::TemporaryRedirect => "Temporary Redirect",
+            HttpResponseStatus::PermanentRedirect => "Permanent Redirect",
+            HttpResponseStatus::BadRequest => "Bad Request",
+            HttpResponseStatus::Unauthorized => "Unauthorized",
+            HttpResponseStatus::PaymentRequired => "Payment Required",
+            HttpResponseStatus::Forbidden => "Forbidden",
+            HttpResponseStatus::NotFound => "Not Found",
+            HttpResponseStatus::MethodNotAllowed => "Method Not Allowed",
+            HttpResponseStatus::NotAcceptable => "Not Acceptable",
+            HttpResponseStatus::ProxyAuthenticationRequired => "Proxy Authentication Required",
+            HttpResponseStatus::RequestTimeout => "Request Timeout",
+            HttpResponseStatus::Conflict => "Conflict",
+            HttpResponseStatus::Gone => "Gone",
+            HttpResponseStatus::LengthRequired => "Length Required",
+            HttpResponseStatus::PreconditionFailed => "Precondition Failed",
+            HttpResponseStatus::PayloadTooLarge => "Payload Too Large",
+            HttpResponseStatus::URITooLong => "URI Too Long",
+            HttpResponseStatus::UnsupportedMediaType => "Unsupported Media Type",
+            HttpResponseStatus::RangeNotSatisfiable => "Range Not Satisfiable",
+            HttpResponseStatus::ExpectationFailed => "Expectation Failed",
+            HttpResponseStatus::IAmATeapot => "I'm A Teapot",
+            HttpResponseStatus::MisdirectedRequest => "Misdirected Request",
+            HttpResponseStatus::UnprocessableEntity => "Unprocessable Entity",
+            HttpResponseStatus::Locked => "Locked",
+            HttpResponseStatus::FailedDependency => "Failed Dependency",
+            HttpResponseStatus::UpgradeRequired => "Upgrade Required",
+            HttpResponseStatus::PreconditionRequired => "Precondition Required",
+            HttpResponseStatus::TooManyRequests => "Too Many Requests",
+            HttpResponseStatus::RequestHeaderFieldsTooLarge => "Request Header Fields Too Large",
+            HttpResponseStatus::UnavailableForLegalReasons => "Unavailable For Legal Reasons",
+            HttpResponseStatus::InternalServerError => "Internal Server Error",
+            HttpResponseStatus::NotImplemented => "Not Implemented",
+            HttpResponseStatus::BadGateway => "Bad Gateway",
+            HttpResponseStatus::ServiceUnavailable => "Service Unavailable",
+            HttpResponseStatus::GatewayTimeout => "Gateway Timeout",
+            HttpResponseStatus::HTTPVersionNotSupported => "HTTP Version Not Supported",
+            HttpResponseStatus::VariantAlsoNegotiates => "Variant Also Negotiates",
+            HttpResponseStatus::InsufficientStorage => "Insufficient Storage",
+            HttpResponseStatus::LoopDetected => "Loop Detected",
+            HttpResponseStatus::NotExtended => "Not Extended",
+            HttpResponseStatus::NetworkAuthenticationRequired => "Network Authentication Required",
+        }
+    }
+}
 // ****************************************************************************
 //
 // Private Functions

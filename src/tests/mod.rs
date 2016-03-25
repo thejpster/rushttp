@@ -114,7 +114,7 @@ fn bad_method() {
     let test = "GETA /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost: localhost\r\n"
                    .as_bytes();
     match ctx.parse(test) {
-        ParseResult::Error => {}
+        ParseResult::ErrorBadMethod => {}
         _ => assert!(false),
     }
 }
@@ -122,7 +122,7 @@ fn bad_method() {
 #[test]
 fn bad_header() {
     let mut ctx = HttpRequestParser::new();
-    let test = "GETA /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost\r\n\r\n".as_bytes();
+    let test = "GET /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost\r\n\r\n".as_bytes();
     match ctx.parse(test) {
         ParseResult::Error => {}
         _ => assert!(false),

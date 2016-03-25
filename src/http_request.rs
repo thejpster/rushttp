@@ -58,8 +58,18 @@ pub struct HttpRequestParser {
 /// Indicates whether the parser has seen enough, needs more data, or has abandoned the parse.
 #[derive(Debug)]
 pub enum ParseResult {
-    /// Parse abandoned - there was a problem with the input
+    /// Parse abandoned - there was an unspecified problem with the input
     Error,
+    /// Didn't like one of the header names
+    ErrorBadHeader,
+    /// Didn't like one of the header values
+    ErrorBadHeaderValue,
+    /// Didn't like the method (e.g. GET)
+    ErrorBadMethod,
+    /// Didn't like the protocol (e.g. HTTP/1.1)
+    ErrorBadProtocol,
+    /// Didn't like the URL,
+    ErrorBadURL,
     /// Parse in progress - need more input
     InProgress,
     /// Parse complete - request object available, and we also report
@@ -78,8 +88,8 @@ pub enum ParseResult {
 enum ParseState {
     Method,
     URL,
-    Version,
-    VersionEOL,
+    Protocol,
+    ProtocolEOL,
     KeyStart,
     Key,
     WrappedValue,
@@ -165,10 +175,10 @@ impl HttpRequestParser {
                                         "PUT" => HttpMethod::PUT,
                                         "OPTION" => HttpMethod::OPTION,
                                         "HEAD" => HttpMethod::HEAD,
-                                        _ => return ParseResult::Error,
+                                        _ => return ParseResult::ErrorBadMethod,
                                     };
                                 }
-                                Err(_) => return ParseResult::Error,
+                                Err(_) => return ParseResult::ErrorBadMethod,
                             }
                             self.state = ParseState::URL
                         }
@@ -181,27 +191,27 @@ impl HttpRequestParser {
                         CharType::Space => {
                             match String::from_utf8(self.temp.split_off(0)) {
                                 Ok(s) => self.url = s,
-                                Err(_) => return ParseResult::Error,
+                                Err(_) => return ParseResult::ErrorBadURL,
                             }
-                            self.state = ParseState::Version
+                            self.state = ParseState::Protocol
                         }
                         CharType::CR | CharType::NL => return ParseResult::Error,
                     }
                 }
-                ParseState::Version => {
+                ParseState::Protocol => {
                     match ct {
                         CharType::Other => self.temp.push(c),
                         CharType::CR => {
                             match String::from_utf8(self.temp.split_off(0)) {
                                 Ok(s) => self.protocol = s,
-                                Err(_) => return ParseResult::Error,
+                                Err(_) => return ParseResult::ErrorBadProtocol,
                             }
-                            self.state = ParseState::VersionEOL
+                            self.state = ParseState::ProtocolEOL
                         }
                         CharType::Space | CharType::NL | CharType::Colon => return ParseResult::Error,
                     }
                 }
-                ParseState::VersionEOL => {
+                ParseState::ProtocolEOL => {
                     match ct {
                         CharType::NL => self.state = ParseState::KeyStart,
                         _ => return ParseResult::Error,
@@ -224,7 +234,7 @@ impl HttpRequestParser {
                         CharType::Colon => {
                             match String::from_utf8(self.temp.split_off(0)) {
                                 Ok(s) => self.key = s,
-                                Err(_) => return ParseResult::Error,
+                                Err(_) => return ParseResult::ErrorBadHeader,
                             }
                             self.state = ParseState::ValueStart
                         }
@@ -250,7 +260,7 @@ impl HttpRequestParser {
                                     let hdr = (self.key.clone(), s);
                                     self.headers.push(hdr);
                                 }
-                                Err(_) => return ParseResult::Error,
+                                Err(_) => return ParseResult::ErrorBadHeaderValue,
                             }
                             self.state = ParseState::ValueEOL
                         }
@@ -286,7 +296,7 @@ impl HttpRequestParser {
                                         None => return ParseResult::Error,
                                     }
                                 }
-                                Err(_) => return ParseResult::Error,
+                                Err(_) => return ParseResult::ErrorBadHeaderValue,
                             }
                             self.state = ParseState::WrappedValueEOL
                         }
