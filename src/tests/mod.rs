@@ -8,8 +8,8 @@
 //
 // ****************************************************************************
 
-use http_parser::*;
-
+use http_request::*;
+use http::*;
 
 // ****************************************************************************
 //
@@ -35,9 +35,9 @@ use http_parser::*;
 
 #[test]
 fn get_complete_header() {
-    let mut ctx = ParseContext::new();
+    let mut ctx = HttpRequestParser::new();
     let test = b"GET /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost: localhost\r\n\r\n";
-    match ctx.parse_header(test) {
+    match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 0);
             assert_eq!(r.method, HttpMethod::GET);
@@ -53,10 +53,10 @@ fn get_complete_header() {
 
 #[test]
 fn get_complete_wrapped_header() {
-    let mut ctx = ParseContext::new();
+    let mut ctx = HttpRequestParser::new();
     let test = b"GET /index.html HTTP/1.1\r\nUser-Agent: rust test\r\n\t\tis the best \
                 test\r\nHost: localhost\r\n\r\n";
-    match ctx.parse_header(test) {
+    match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 0);
             assert_eq!(r.method, HttpMethod::GET);
@@ -72,15 +72,15 @@ fn get_complete_wrapped_header() {
 
 #[test]
 fn put_complete_header() {
-    let mut ctx = ParseContext::new();
-    match ctx.parse_header(b"PUT ") {
+    let mut ctx = HttpRequestParser::new();
+    match ctx.parse(b"PUT ") {
         ParseResult::InProgress => {},
         _ => panic!()
     }
     let test = "/v1/api/frob?foo=bar HTTP/1.0\r\nUser-Agent: rust test\r\nHost: \
                 localhost\r\nContent-Length: 12\r\n\r\nFlibble 💖"
                    .as_bytes();
-    match ctx.parse_header(test) {
+    match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 12);
             assert_eq!(r.method, HttpMethod::PUT);
@@ -99,10 +99,10 @@ fn put_complete_header() {
 
 #[test]
 fn incomplete_header() {
-    let mut ctx = ParseContext::new();
+    let mut ctx = HttpRequestParser::new();
     let test = "GET /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost: localhost\r\n"
                    .as_bytes();
-    match ctx.parse_header(test) {
+    match ctx.parse(test) {
         ParseResult::InProgress => {}
         _ => assert!(false),
     }
@@ -110,10 +110,10 @@ fn incomplete_header() {
 
 #[test]
 fn bad_method() {
-    let mut ctx = ParseContext::new();
+    let mut ctx = HttpRequestParser::new();
     let test = "GETA /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost: localhost\r\n"
                    .as_bytes();
-    match ctx.parse_header(test) {
+    match ctx.parse(test) {
         ParseResult::Error => {}
         _ => assert!(false),
     }
@@ -121,9 +121,9 @@ fn bad_method() {
 
 #[test]
 fn bad_header() {
-    let mut ctx = ParseContext::new();
+    let mut ctx = HttpRequestParser::new();
     let test = "GETA /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost\r\n\r\n".as_bytes();
-    match ctx.parse_header(test) {
+    match ctx.parse(test) {
         ParseResult::Error => {}
         _ => assert!(false),
     }

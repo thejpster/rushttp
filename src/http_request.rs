@@ -1,6 +1,6 @@
-//! # The rushttp Rust HTTP Library - HTTP Parser
+//! # HTTP Request Parser
 //!
-//! The HTTP Parser converts octet streams into objects, octet by octet.
+//! The `HttpRequestParser` converts octet streams into objects, octet by octet.
 //! Can also convert objects back to octet streams.
 
 // ****************************************************************************
@@ -10,23 +10,15 @@
 // ****************************************************************************
 
 use std::collections::HashMap;
+use std::mem;
+
+use http::*;
 
 // ****************************************************************************
 //
 // Public Types
 //
 // ****************************************************************************
-
-/// The HTTP Method.
-/// Every HTTP request has a method - GET is the most comment.
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum HttpMethod {
-    GET,
-    POST,
-    PUT,
-    OPTION,
-    HEAD,
-}
 
 /// An HTTP Request.
 /// Fully describes the HTTP request sent from the client to the server.
@@ -42,10 +34,9 @@ pub struct HttpRequest {
     pub headers: HashMap<String, String>,
 }
 
-/// Contains the internal state for the parser. Must be given
-/// to the parse_header function.
+/// Contains the internal state for the parser.
 #[derive(Debug)]
-pub struct ParseContext {
+pub struct HttpRequestParser {
     /// Our parser is stateful - incoming octets are handled based on the current state
     state: ParseState,
     /// Strings are collated into this temporary vector, until a seninel is seen
@@ -116,6 +107,15 @@ enum CharType {
 // ****************************************************************************
 
 impl HttpRequest {
+    pub fn new() -> HttpRequest {
+        HttpRequest {
+            url: String::new(),
+            method: HttpMethod::GET,
+            protocol: String::new(),
+            headers: HashMap::new(),
+        }
+    }
+
     pub fn get_content_length(&self) -> Result<usize, &str> {
         match self.headers.get("Content-Length") {
             Some(value) => match value.parse::<usize>() {
@@ -127,11 +127,11 @@ impl HttpRequest {
     }
 }
 
-impl ParseContext {
-    /// Ensures a default ParseContext can be created and that it has the correct
+impl HttpRequestParser {
+    /// Ensures a default HttpRequestParser can be created and that it has the correct
     /// starting values for a parse.
-    pub fn new() -> ParseContext {
-        ParseContext {
+    pub fn new() -> HttpRequestParser {
+        HttpRequestParser {
             state: ParseState::Method,
             temp: Vec::new(),
             url: String::new(),
@@ -145,7 +145,7 @@ impl ParseContext {
     /// Perform the HTTP parse.
     /// This reads the buffer octet by octet, collating strings into
     /// temporary vectors. If any sort of error occurs, we bail out.
-    pub fn parse_header(&mut self, buffer: &[u8]) -> ParseResult {
+    pub fn parse(&mut self, buffer: &[u8]) -> ParseResult {
         let mut read = 0;
         for b in buffer {
             let c = *b;
@@ -167,7 +167,6 @@ impl ParseContext {
                                         "HEAD" => HttpMethod::HEAD,
                                         _ => return ParseResult::Error,
                                     };
-                                    println!("Got method {:?}", self.method)
                                 }
                                 Err(_) => return ParseResult::Error,
                             }
@@ -184,7 +183,6 @@ impl ParseContext {
                                 Ok(s) => self.url = s,
                                 Err(_) => return ParseResult::Error,
                             }
-                            println!("Got URL {:?}", self.url);
                             self.state = ParseState::Version
                         }
                         CharType::CR | CharType::NL => return ParseResult::Error,
@@ -198,7 +196,6 @@ impl ParseContext {
                                 Ok(s) => self.protocol = s,
                                 Err(_) => return ParseResult::Error,
                             }
-                            println!("Got protocol {:?}", self.protocol);
                             self.state = ParseState::VersionEOL
                         }
                         CharType::Space | CharType::NL | CharType::Colon => return ParseResult::Error,
@@ -251,7 +248,6 @@ impl ParseContext {
                             match String::from_utf8(self.temp.split_off(0)) {
                                 Ok(s) => {
                                     let hdr = (self.key.clone(), s);
-                                    println!("Got header {:?}", hdr);
                                     self.headers.push(hdr);
                                 }
                                 Err(_) => return ParseResult::Error,
@@ -289,7 +285,6 @@ impl ParseContext {
                                         Some(x) => x.1.push_str(s.as_str()),
                                         None => return ParseResult::Error,
                                     }
-                                    println!("Appended {:?}", s);
                                 }
                                 Err(_) => return ParseResult::Error,
                             }
@@ -307,12 +302,11 @@ impl ParseContext {
                 ParseState::FinalEOL => {
                     match ct {
                         CharType::NL => {
-                            let mut r: HttpRequest = HttpRequest {
-                                url: self.url.clone(),
-                                method: self.method.clone(),
-                                protocol: self.protocol.clone(),
-                                headers: HashMap::new(),
-                            };
+                            let mut r: HttpRequest = HttpRequest::new();
+                            // Steal the values out of the parser into the request
+                            mem::swap(&mut r.url, &mut self.url);
+                            mem::swap(&mut r.method, &mut self.method);
+                            mem::swap(&mut r.protocol, &mut self.protocol);
                             for (k, v) in self.headers.drain(..) {
                                 r.headers.insert(k, v);
                             }
