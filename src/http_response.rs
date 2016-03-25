@@ -11,6 +11,7 @@
 
 use std::collections::HashMap;
 use std::fmt;
+use std::io::Write;
 
 // ****************************************************************************
 //
@@ -97,12 +98,6 @@ pub struct HttpResponse {
     pub body: String
 }
 
-/// Contains the internal state for the renderer.
-#[derive(Debug)]
-pub struct HttpResponseRenderer {
-    pub foo: String
-}
-
 // ****************************************************************************
 //
 // Private Types
@@ -116,6 +111,19 @@ pub struct HttpResponseRenderer {
 // Public Functions
 //
 // ****************************************************************************
+
+impl HttpResponse {
+    pub fn write<T: Write>(&self, sink: &mut T) {
+        let header:String = format!("{} {}\r\n", self.protocol, self.status);
+        sink.write(header.as_bytes()).unwrap();
+        for (k, v) in &self.headers {
+            let line = format!("{}: {}\r\n", k, v);
+            sink.write(line.as_bytes()).unwrap();
+        }
+        sink.write(b"\r\n").unwrap();
+        sink.write(self.body.as_bytes()).unwrap();
+    }
+}
 
 impl fmt::Display for HttpResponseStatus {
     // This trait requires `fmt` with this exact signature.

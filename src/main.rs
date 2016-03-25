@@ -124,7 +124,7 @@ fn generate_response(stream: &mut TcpStream, request: HttpRequest) {
     };
     response.headers.insert(String::from("Content-Type"), String::from("text/plain; charset=utf-8"));
     response.headers.insert(String::from("Connection"), String::from("close"));
-    render_response(stream, response);
+    response.write(stream);
 }
 
 /// Handle a parsing error
@@ -150,18 +150,7 @@ fn render_error(stream: &mut TcpStream, error_code: HttpResponseStatus, error_ms
     };
     response.headers.insert(String::from("Content-Type"), String::from("text/plain; charset=utf-8"));
     response.headers.insert(String::from("Connection"), String::from("close"));
-    render_response(stream, response);
-}
-
-fn render_response(stream: &mut TcpStream, response: HttpResponse) {
-    let header:String = format!("{} {}\r\n", response.protocol, response.status);
-    stream.write(header.as_bytes()).unwrap();
-    for (k, v) in response.headers {
-        let line = format!("{}: {}\r\n", k, v);
-        stream.write(line.as_bytes()).unwrap();
-    }
-    stream.write(b"\r\n").unwrap();
-    stream.write(response.body.as_bytes()).unwrap();
+    response.write(stream);
 }
 
 // ****************************************************************************
