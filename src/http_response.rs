@@ -11,7 +11,7 @@
 
 use std::collections::HashMap;
 use std::fmt;
-use std::io::Write;
+use std::io;
 
 // ****************************************************************************
 //
@@ -113,15 +113,17 @@ pub struct HttpResponse {
 // ****************************************************************************
 
 impl HttpResponse {
-    pub fn write<T: Write>(&self, sink: &mut T) {
+    pub fn write<T: io::Write>(&self, sink: &mut T) -> io::Result<usize> {
         let header:String = format!("{} {}\r\n", self.protocol, self.status);
-        sink.write(header.as_bytes()).unwrap();
+        let mut total:usize = 0;
+        total += try!(sink.write(header.as_bytes()));
         for (k, v) in &self.headers {
             let line = format!("{}: {}\r\n", k, v);
-            sink.write(line.as_bytes()).unwrap();
+            total += try!(sink.write(line.as_bytes()));
         }
-        sink.write(b"\r\n").unwrap();
-        sink.write(self.body.as_bytes()).unwrap();
+        total += try!(sink.write(b"\r\n"));
+        total += try!(sink.write(self.body.as_bytes()));
+        return Ok(total);
     }
 }
 
@@ -156,7 +158,7 @@ impl HttpResponseStatus {
             HttpResponseStatus::MovedPermanently => "Moved Permanently",
             HttpResponseStatus::Found => "Found",
             HttpResponseStatus::SeeOther => "See Other",
-            HttpResponseStatus::NotModified => "Not odified",
+            HttpResponseStatus::NotModified => "Not Modified",
             HttpResponseStatus::UseProxy => "Use Proxy",
             HttpResponseStatus::SwitchProxy => "Switch Proxy",
             HttpResponseStatus::TemporaryRedirect => "Temporary Redirect",
