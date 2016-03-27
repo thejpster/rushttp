@@ -128,11 +128,13 @@ impl HttpRequest {
 
     pub fn get_content_length(&self) -> Result<usize, &str> {
         match self.headers.get("Content-Length") {
-            Some(value) => match value.parse::<usize>() {
-                Ok(v) => Ok(v),
-                Err(_) => Err("Header valid invalid")
-            },
-            None => Err("Header Not Found")
+            Some(value) => {
+                match value.parse::<usize>() {
+                    Ok(v) => Ok(v),
+                    Err(_) => Err("Header valid invalid"),
+                }
+            }
+            None => Err("Header Not Found"),
         }
     }
 }
@@ -208,7 +210,9 @@ impl HttpRequestParser {
                             }
                             self.state = ParseState::ProtocolEOL
                         }
-                        CharType::Space | CharType::NL | CharType::Colon => return ParseResult::Error,
+                        CharType::Space | CharType::NL | CharType::Colon => {
+                            return ParseResult::Error
+                        }
                     }
                 }
                 ParseState::ProtocolEOL => {

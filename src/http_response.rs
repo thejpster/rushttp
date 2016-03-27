@@ -95,7 +95,7 @@ pub struct HttpResponse {
     /// Any headers supplied by the server in the response
     pub headers: HashMap<String, String>,
     /// The response body
-    pub body: String
+    pub body: String,
 }
 
 // ****************************************************************************
@@ -114,8 +114,8 @@ pub struct HttpResponse {
 
 impl HttpResponse {
     pub fn write<T: io::Write>(&self, sink: &mut T) -> io::Result<usize> {
-        let header:String = format!("{} {}\r\n", self.protocol, self.status);
-        let mut total:usize = 0;
+        let header: String = format!("{} {}\r\n", self.protocol, self.status);
+        let mut total: usize = 0;
         total += try!(sink.write(header.as_bytes()));
         for (k, v) in &self.headers {
             let line = format!("{}: {}\r\n", k, v);

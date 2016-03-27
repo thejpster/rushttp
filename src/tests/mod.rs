@@ -63,7 +63,8 @@ fn get_complete_wrapped_header() {
             assert_eq!(r.url, "/index.html");
             assert_eq!(r.protocol, "HTTP/1.1");
             assert_eq!(r.headers.len(), 2);
-            assert_eq!(r.headers["User-Agent"], String::from("rust test is the best test"));
+            assert_eq!(r.headers["User-Agent"],
+                       String::from("rust test is the best test"));
             assert_eq!(r.headers["Host"], String::from("localhost"));
         }
         _ => assert!(false),
@@ -74,8 +75,8 @@ fn get_complete_wrapped_header() {
 fn put_complete_header() {
     let mut ctx = HttpRequestParser::new();
     match ctx.parse(b"PUT ") {
-        ParseResult::InProgress => {},
-        _ => panic!()
+        ParseResult::InProgress => {}
+        _ => panic!(),
     }
     let test = "/v1/api/frob?foo=bar HTTP/1.0\r\nUser-Agent: rust test\r\nHost: \
                 localhost\r\nContent-Length: 12\r\n\r\nFlibble 💖"
