@@ -11,6 +11,7 @@ extern crate rushttp;
 
 use rushttp::http_request::*;
 use rushttp::http_response::*;
+use rushttp::http::*;
 
 use std::collections::HashMap;
 use std::io::prelude::*;
@@ -70,13 +71,16 @@ fn main() {
 //
 // ****************************************************************************
 
+const TCP_READ_TIMEOUT_SECONDS: u64 = 300;
+
 /// This function is started in a new thread for every incoming connection.
 fn handle_client(mut stream: TcpStream) {
     println!("+conn on {:?}!", stream);
-    stream.set_read_timeout(Some(Duration::new(10, 0))).unwrap();
-    match read_request(&mut stream) {
-        Ok(r) => generate_response(&mut stream, r),
-        Err(e) => render_parse_error(&mut stream, e),
+    if let Ok(_) = stream.set_read_timeout(Some(Duration::from_secs(TCP_READ_TIMEOUT_SECONDS))) {
+        match read_request(&mut stream) {
+            Ok(r) => generate_response(&mut stream, r),
+            Err(e) => render_parse_error(&mut stream, e),
+        }
     }
     stream.shutdown(Shutdown::Both).unwrap();
     println!("-conn on {:?}!", stream);
@@ -86,7 +90,7 @@ fn handle_client(mut stream: TcpStream) {
 fn read_request(stream: &mut TcpStream) -> Result<HttpRequest, ParseResult> {
     let mut ctx: HttpRequestParser = HttpRequestParser::new();
     loop {
-        let mut buffer: [u8; 8] = [0; 8];
+        let mut buffer = vec![0; 1024];
         match stream.read(&mut buffer) {
             Ok(_) => {
                 let r = ctx.parse(&buffer);
@@ -109,45 +113,44 @@ fn read_request(stream: &mut TcpStream) -> Result<HttpRequest, ParseResult> {
 
 /// Send back a noddy response based on the request
 fn generate_response(stream: &mut TcpStream, request: HttpRequest) {
-    let mut body: String = String::new();
-    body.push_str("This is a test.\r\n");
-    body.push_str(&format!("You asked for URL {}\r\n", request.url));
-    for (k, v) in request.headers {
-        body.push_str(&format!("Key '{}' = '{}'\r\n", k, v));
-    }
+    if request.method == HttpMethod::GET {
+        let mut body: String = String::new();
+        body.push_str("This is a test.\r\n");
+        body.push_str(&format!("You asked for URL {}\r\n", request.url));
+        body.push_str(&format!("You are stream {:?}\r\n", stream));
+        for (k, v) in request.headers {
+            body.push_str(&format!("Key '{}' = '{}'\r\n", k, v));
+        }
 
-    let mut response: HttpResponse = HttpResponse {
-        status: HttpResponseStatus::OK,
-        protocol: String::from("HTTP/1.1"),
-        headers: HashMap::new(),
-        body: body,
-    };
-    response.headers.insert(String::from("Content-Type"),
-                            String::from("text/plain; charset=utf-8"));
-    response.headers.insert(String::from("Connection"), String::from("close"));
-    response.write(stream).unwrap();
+        let mut response: HttpResponse = HttpResponse {
+            status: HttpResponseStatus::OK,
+            protocol: String::from("HTTP/1.1"),
+            headers: HashMap::new(),
+            body: body,
+        };
+        response.headers.insert(String::from("Content-Type"),
+                                String::from("text/plain; charset=utf-8"));
+        response.headers.insert(String::from("Connection"), String::from("close"));
+        response.write(stream).unwrap();
+    }
+    else {
+        render_error(stream, HttpResponseStatus::MethodNotAllowed, &format!("Method {:?} not allowed.", request.method));
+    }
 }
 
 /// Handle a parsing error
 fn render_parse_error(stream: &mut TcpStream, error: ParseResult) {
-    match error {
-        ParseResult::ErrorBadHeader => {
-            render_error(stream, HttpResponseStatus::BadRequest, "Bad Header")
-        }
-        ParseResult::ErrorBadHeaderValue => {
-            render_error(stream, HttpResponseStatus::BadRequest, "Bad Header Value")
-        }
-        ParseResult::ErrorBadMethod => {
-            render_error(stream, HttpResponseStatus::MethodNotAllowed, "Bad Method")
-        }
+    let (status, msg) = match error {
+        ParseResult::ErrorBadHeader => (HttpResponseStatus::BadRequest, "Bad Header"),
+        ParseResult::ErrorBadHeaderValue => (HttpResponseStatus::BadRequest, "Bad Header Value"),
+        ParseResult::ErrorBadMethod => (HttpResponseStatus::MethodNotAllowed, "Bad Method"),
         ParseResult::ErrorBadProtocol => {
-            render_error(stream,
-                         HttpResponseStatus::HTTPVersionNotSupported,
-                         "Bad Protocol")
+            (HttpResponseStatus::HTTPVersionNotSupported, "Bad Protocol")
         }
-        ParseResult::ErrorBadURL => render_error(stream, HttpResponseStatus::BadRequest, "Bad URL"),
-        _ => render_error(stream, HttpResponseStatus::BadRequest, "Unknown Error"),
-    }
+        ParseResult::ErrorBadURL => (HttpResponseStatus::BadRequest, "Bad URL"),
+        _ => (HttpResponseStatus::BadRequest, "Unknown Error"),
+    };
+    render_error(stream, status, msg);
 }
 
 /// Send an error page

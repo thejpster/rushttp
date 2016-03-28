@@ -107,7 +107,7 @@ enum CharType {
     Space,
     Colon,
     CR,
-    NL,
+    LF,
 }
 
 // ****************************************************************************
@@ -184,7 +184,7 @@ impl HttpRequestParser {
                             }
                             self.state = ParseState::URL
                         }
-                        CharType::Colon | CharType::CR | CharType::NL => return ParseResult::Error,
+                        CharType::Colon | CharType::CR | CharType::LF => return ParseResult::Error,
                     }
                 }
                 ParseState::URL => {
@@ -197,7 +197,7 @@ impl HttpRequestParser {
                             }
                             self.state = ParseState::Protocol
                         }
-                        CharType::CR | CharType::NL => return ParseResult::Error,
+                        CharType::CR | CharType::LF => return ParseResult::Error,
                     }
                 }
                 ParseState::Protocol => {
@@ -210,26 +210,34 @@ impl HttpRequestParser {
                             }
                             self.state = ParseState::ProtocolEOL
                         }
-                        CharType::Space | CharType::NL | CharType::Colon => {
-                            return ParseResult::Error
+                        CharType::LF => {
+                            match String::from_utf8(self.temp.split_off(0)) {
+                                Ok(s) => self.protocol = s,
+                                Err(_) => return ParseResult::ErrorBadProtocol,
+                            }
+                            self.state = ParseState::KeyStart
                         }
+                        CharType::Space | CharType::Colon => return ParseResult::ErrorBadProtocol,
                     }
                 }
                 ParseState::ProtocolEOL => {
                     match ct {
-                        CharType::NL => self.state = ParseState::KeyStart,
+                        CharType::LF => self.state = ParseState::KeyStart,
                         _ => return ParseResult::Error,
                     }
                 }
                 ParseState::KeyStart => {
                     match ct {
                         CharType::Space => self.state = ParseState::WrappedValueStart,
+                        CharType::LF => {
+                            return ParseResult::Complete(self.build_request(), read);
+                        }
                         CharType::CR => self.state = ParseState::FinalEOL,
                         CharType::Other => {
                             self.temp.push(c);
                             self.state = ParseState::Key
                         }
-                        CharType::Colon | CharType::NL => return ParseResult::Error,
+                        CharType::Colon => return ParseResult::Error,
                     }
                 }
                 ParseState::Key => {
@@ -242,7 +250,7 @@ impl HttpRequestParser {
                             }
                             self.state = ParseState::ValueStart
                         }
-                        CharType::Space | CharType::NL | CharType::CR => return ParseResult::Error,
+                        CharType::Space | CharType::LF | CharType::CR => return ParseResult::Error,
                     }
                 }
                 ParseState::ValueStart => {
@@ -252,7 +260,7 @@ impl HttpRequestParser {
                             self.temp.push(c);
                             self.state = ParseState::Value
                         }
-                        CharType::NL | CharType::CR | CharType::Colon => return ParseResult::Error,
+                        CharType::LF | CharType::CR | CharType::Colon => return ParseResult::Error,
                     }
                 }
                 ParseState::Value => {
@@ -268,12 +276,21 @@ impl HttpRequestParser {
                             }
                             self.state = ParseState::ValueEOL
                         }
-                        CharType::NL => return ParseResult::Error,
+                        CharType::LF => {
+                            match String::from_utf8(self.temp.split_off(0)) {
+                                Ok(s) => {
+                                    let hdr = (self.key.clone(), s);
+                                    self.headers.push(hdr);
+                                }
+                                Err(_) => return ParseResult::ErrorBadHeaderValue,
+                            }
+                            self.state = ParseState::KeyStart
+                        }
                     }
                 }
                 ParseState::ValueEOL => {
                     match ct {
-                        CharType::NL => self.state = ParseState::KeyStart,
+                        CharType::LF => self.state = ParseState::KeyStart,
                         _ => return ParseResult::Error,
                     }
                 }
@@ -286,7 +303,7 @@ impl HttpRequestParser {
                             self.state = ParseState::WrappedValue
                         }
                         CharType::CR => self.state = ParseState::WrappedValueEOL,
-                        CharType::NL => return ParseResult::Error,
+                        CharType::LF => return ParseResult::Error,
                     }
                 }
                 ParseState::WrappedValue => {
@@ -304,27 +321,19 @@ impl HttpRequestParser {
                             }
                             self.state = ParseState::WrappedValueEOL
                         }
-                        CharType::NL => return ParseResult::Error,
+                        CharType::LF => return ParseResult::Error,
                     }
                 }
                 ParseState::WrappedValueEOL => {
                     match ct {
-                        CharType::NL => self.state = ParseState::KeyStart,
+                        CharType::LF => self.state = ParseState::KeyStart,
                         _ => return ParseResult::Error,
                     }
                 }
                 ParseState::FinalEOL => {
                     match ct {
-                        CharType::NL => {
-                            let mut r: HttpRequest = HttpRequest::new();
-                            // Steal the values out of the parser into the request
-                            mem::swap(&mut r.url, &mut self.url);
-                            mem::swap(&mut r.method, &mut self.method);
-                            mem::swap(&mut r.protocol, &mut self.protocol);
-                            for (k, v) in self.headers.drain(..) {
-                                r.headers.insert(k, v);
-                            }
-                            return ParseResult::Complete(r, read);
+                        CharType::LF => {
+                            return ParseResult::Complete(self.build_request(), read);
                         }
                         _ => return ParseResult::Error,
                     }
@@ -333,13 +342,29 @@ impl HttpRequestParser {
         }
         ParseResult::InProgress
     }
+
+    /// Construct the HttpRequest object based on what
+    /// we've picked up so far.
+    fn build_request(&mut self) -> HttpRequest {
+        let mut r: HttpRequest = HttpRequest::new();
+        // Steal the values out of the parser into the request
+        mem::swap(&mut r.url, &mut self.url);
+        mem::swap(&mut r.method, &mut self.method);
+        mem::swap(&mut r.protocol, &mut self.protocol);
+        for (k, v) in self.headers.drain(..) {
+            r.headers.insert(k, v);
+        }
+        return r;
+    }
 }
+
 
 // ****************************************************************************
 //
 // Private Functions
 //
 // ****************************************************************************
+
 
 /// Map an octet (in US-ASCII) to a character
 /// class, so we can decide what to do with it.
@@ -349,7 +374,7 @@ fn get_char_type(b: u8) -> CharType {
     } else if b == 0x0D {
         CharType::CR
     } else if b == 0x0A {
-        CharType::NL
+        CharType::LF
     } else if b == 0x3A {
         CharType::Colon
     } else {
