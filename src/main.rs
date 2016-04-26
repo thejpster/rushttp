@@ -13,7 +13,6 @@ use rushttp::http_request::*;
 use rushttp::http_response::*;
 use rushttp::http::*;
 
-use std::collections::HashMap;
 use std::io::prelude::*;
 use std::net::{TcpListener, TcpStream, Shutdown};
 use std::thread;
@@ -122,19 +121,14 @@ fn generate_response(stream: &mut TcpStream, request: HttpRequest) {
             body.push_str(&format!("Key '{}' = '{}'\r\n", k, v));
         }
 
-        let mut response: HttpResponse = HttpResponse {
-            status: HttpResponseStatus::OK,
-            protocol: String::from("HTTP/1.1"),
-            headers: HashMap::new(),
-            body: body,
-        };
-        response.headers.insert(String::from("Content-Type"),
-                                String::from("text/plain; charset=utf-8"));
-        response.headers.insert(String::from("Connection"), String::from("close"));
+        let mut response = HttpResponse::new_with_body(HttpResponseStatus::OK, "HTTP/1.1", body);
+        response.add_header("Content-Type", "text/plain; charset=utf-8");
+        response.add_header("Connection", "close");
         response.write(stream).unwrap();
-    }
-    else {
-        render_error(stream, HttpResponseStatus::MethodNotAllowed, &format!("Method {:?} not allowed.", request.method));
+    } else {
+        render_error(stream,
+                     HttpResponseStatus::MethodNotAllowed,
+                     &format!("Method {:?} not allowed.", request.method));
     }
 }
 
@@ -156,15 +150,9 @@ fn render_parse_error(stream: &mut TcpStream, error: ParseResult) {
 /// Send an error page
 fn render_error(stream: &mut TcpStream, error_code: HttpResponseStatus, error_msg: &str) {
     let body = format!("Error {0}: {1}\r\n", error_code, error_msg);
-    let mut response: HttpResponse = HttpResponse {
-        status: error_code,
-        protocol: String::from("HTTP/1.1"),
-        headers: HashMap::new(),
-        body: body,
-    };
-    response.headers.insert(String::from("Content-Type"),
-                            String::from("text/plain; charset=utf-8"));
-    response.headers.insert(String::from("Connection"), String::from("close"));
+    let mut response = HttpResponse::new_with_body(error_code, "HTTP/1.1", body);
+    response.add_header("Content-Type", "text/plain; charset=utf-8");
+    response.add_header("Connection", "close");
     response.write(stream).unwrap();
 }
 

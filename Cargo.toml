@@ -1,6 +1,6 @@
 [package]
 name = "rushttp"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Jonathan 'theJPster' Pallant <git@thejpster.org.uk>"]
 description = "rushttp is a simple HTTP library for rust, written as a learning excercise for the author."
 homepage = "http://thejpster.org.uk"

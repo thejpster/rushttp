@@ -12,6 +12,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::io;
+use std::borrow::Cow;
 
 // ****************************************************************************
 //
@@ -86,16 +87,18 @@ pub enum HttpResponseStatus {
 
 /// An HTTP Response.
 /// Fully describes the HTTP response sent from the server to the client.
+/// Because the user can create these objects, we use a Cow to allow them
+/// to supply either an `&str` or a `std::string::String`.
 #[derive(Debug)]
-pub struct HttpResponse {
+pub struct HttpResponse<'a> {
     /// The HTTP result code - @todo should be an enum
     pub status: HttpResponseStatus,
     /// The protocol the client is using in the response
-    pub protocol: String,
+    pub protocol: Cow<'a, str>,
     /// Any headers supplied by the server in the response
-    pub headers: HashMap<String, String>,
+    pub headers: HashMap<Cow<'a, str>, Cow<'a, str>>,
     /// The response body
-    pub body: String,
+    pub body: Cow<'a, str>,
 }
 
 // ****************************************************************************
@@ -112,7 +115,25 @@ pub struct HttpResponse {
 //
 // ****************************************************************************
 
-impl HttpResponse {
+impl<'a> HttpResponse<'a> {
+    pub fn new<S>(status: HttpResponseStatus, protocol: S) -> HttpResponse<'a>
+        where S: Into<Cow<'a, str>>
+    {
+        HttpResponse::new_with_body(status, protocol, Cow::Borrowed(""))
+    }
+
+    pub fn new_with_body<S, T>(status: HttpResponseStatus, protocol: S, body: T) -> HttpResponse<'a>
+        where S: Into<Cow<'a, str>>,
+              T: Into<Cow<'a, str>>
+    {
+        HttpResponse {
+            status: status,
+            protocol: protocol.into(),
+            headers: HashMap::new(),
+            body: body.into(),
+        }
+    }
+
     pub fn write<T: io::Write>(&self, sink: &mut T) -> io::Result<usize> {
         let header: String = format!("{} {}\r\n", self.protocol, self.status);
         let mut total: usize = 0;
@@ -124,6 +145,13 @@ impl HttpResponse {
         total += try!(sink.write(b"\r\n"));
         total += try!(sink.write(self.body.as_bytes()));
         return Ok(total);
+    }
+
+    pub fn add_header<S, T>(&mut self, key: S, value: T)
+        where S: Into<Cow<'a, str>>,
+              T: Into<Cow<'a, str>>
+    {
+        self.headers.insert(key.into(), value.into());
     }
 }
 
