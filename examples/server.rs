@@ -9,9 +9,9 @@
 // Use our own library
 extern crate rushttp;
 
-use rushttp::http_request::*;
-use rushttp::http_response::*;
-use rushttp::http::*;
+use rushttp::request::*;
+use rushttp::response::*;
+use rushttp::Method;
 
 use std::io::prelude::*;
 use std::net::{TcpListener, TcpStream, Shutdown};
@@ -86,8 +86,8 @@ fn handle_client(mut stream: TcpStream) {
 }
 
 /// Process the incoming HTTP request
-fn read_request(stream: &mut TcpStream) -> Result<HttpRequest, ParseResult> {
-    let mut ctx: HttpRequestParser = HttpRequestParser::new();
+fn read_request(stream: &mut TcpStream) -> Result<Request, ParseResult> {
+    let mut ctx: Parser = Parser::new();
     loop {
         let mut buffer = vec![0; 1024];
         match stream.read(&mut buffer) {
@@ -111,8 +111,8 @@ fn read_request(stream: &mut TcpStream) -> Result<HttpRequest, ParseResult> {
 }
 
 /// Send back a noddy response based on the request
-fn generate_response(stream: &mut TcpStream, request: HttpRequest) {
-    if request.method == HttpMethod::GET {
+fn generate_response(stream: &mut TcpStream, request: Request) {
+    if request.method == Method::Get {
         let mut body: String = String::new();
         body.push_str("This is a test.\r\n");
         body.push_str(&format!("You asked for URL {}\r\n", request.url));

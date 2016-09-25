@@ -3,12 +3,69 @@
 //! The rushttp library is an HTTP parser/encoder written in Rust.
 //! It can be used to write small web servers.
 
-pub mod http;
-pub mod http_request;
-pub mod http_response;
+// ****************************************************************************
+//
+// Imports
+//
+// ****************************************************************************
+
+pub mod request;
+pub mod response;
 
 #[cfg(test)]
 mod tests;
+
+// ****************************************************************************
+//
+// Public Types
+//
+// ****************************************************************************
+
+/// The HTTP Protcol
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum Protocol {
+    Http10,
+    Http11,
+}
+
+/// The HTTP Method.
+/// Every HTTP request has a method - GET is the most comment.
+#[derive(Debug, PartialEq, Copy, Clone)]
+pub enum Method {
+    Options,
+    Get,
+    Post,
+    Put,
+    Delete,
+    Head,
+    Trace,
+    Connect,
+    Patch,
+}
+
+// ****************************************************************************
+//
+// Private Types
+//
+// ****************************************************************************
+
+// None
+
+// ****************************************************************************
+//
+// Public Functions
+//
+// ****************************************************************************
+
+// None
+
+// ****************************************************************************
+//
+// Private Functions
+//
+// ****************************************************************************
+
+// None
 
 // ****************************************************************************
 //

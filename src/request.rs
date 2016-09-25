@@ -1,6 +1,6 @@
 //! # HTTP Request Parser
 //!
-//! The `HttpRequestParser` converts octet streams into objects, octet by octet.
+//! The `Parser` converts octet streams into objects, octet by octet.
 //! Can also convert objects back to octet streams.
 
 // ****************************************************************************
@@ -10,9 +10,9 @@
 // ****************************************************************************
 
 use std::collections::HashMap;
-use std::mem;
+use std::str;
 
-use http::*;
+use super::{Method, Protocol};
 
 // ****************************************************************************
 //
@@ -23,20 +23,20 @@ use http::*;
 /// An HTTP Request.
 /// Fully describes the HTTP request sent from the client to the server.
 #[derive(Debug)]
-pub struct HttpRequest {
+pub struct Request {
     /// The URL the client is requesting
     pub url: String,
     /// The method the client is requesting
-    pub method: HttpMethod,
+    pub method: Method,
     /// The protocol the client is using in the request
-    pub protocol: String,
+    pub protocol: Protocol,
     /// Any headers supplied by the client in the request
     pub headers: HashMap<String, String>,
 }
 
 /// Contains the internal state for the parser.
 #[derive(Debug)]
-pub struct HttpRequestParser {
+pub struct Parser {
     /// Our parser is stateful - incoming octets are handled based on the current state
     state: ParseState,
     /// Strings are collated into this temporary vector, until a seninel is seen
@@ -44,9 +44,9 @@ pub struct HttpRequestParser {
     /// The URL in the request
     url: String,
     /// The method in the request
-    method: HttpMethod,
+    method: Method,
     /// The protocol in the request
-    protocol: String,
+    protocol: Protocol,
     /// A collection of HTTP headers (key,value) pairs. We need them in-order
     /// as if the next line begins with a space, we need to append to the
     /// previous header's value.
@@ -75,7 +75,7 @@ pub enum ParseResult {
     /// Parse complete - request object available, and we also report
     /// the number of octets taken from the given buffer. If there
     /// are any octets remaining, they are probably body content.
-    Complete(HttpRequest, usize),
+    Complete(Request, usize),
 }
 
 // ****************************************************************************
@@ -116,16 +116,7 @@ enum CharType {
 //
 // ****************************************************************************
 
-impl HttpRequest {
-    pub fn new() -> HttpRequest {
-        HttpRequest {
-            url: String::new(),
-            method: HttpMethod::GET,
-            protocol: String::new(),
-            headers: HashMap::new(),
-        }
-    }
-
+impl Request {
     pub fn get_content_length(&self) -> Result<usize, &str> {
         match self.headers.get("Content-Length") {
             Some(value) => {
@@ -139,16 +130,16 @@ impl HttpRequest {
     }
 }
 
-impl HttpRequestParser {
-    /// Ensures a default HttpRequestParser can be created and that it has the correct
+impl Parser {
+    /// Ensures a default Parser can be created and that it has the correct
     /// starting values for a parse.
-    pub fn new() -> HttpRequestParser {
-        HttpRequestParser {
+    pub fn new() -> Parser {
+        Parser {
             state: ParseState::Method,
             temp: Vec::new(),
             url: String::new(),
-            method: HttpMethod::GET,
-            protocol: String::new(),
+            method: Method::Get,
+            protocol: Protocol::Http10,
             headers: Vec::new(),
             key: String::new(),
         }
@@ -169,19 +160,24 @@ impl HttpRequestParser {
                     match ct {
                         CharType::Other => self.temp.push(c),
                         CharType::Space => {
-                            match String::from_utf8(self.temp.split_off(0)) {
+                            match str::from_utf8(&self.temp) {
                                 Ok(s) => {
-                                    self.method = match s.as_str() {
-                                        "GET" => HttpMethod::GET,
-                                        "POST" => HttpMethod::POST,
-                                        "PUT" => HttpMethod::PUT,
-                                        "OPTION" => HttpMethod::OPTION,
-                                        "HEAD" => HttpMethod::HEAD,
+                                    self.method = match s {
+                                        "OPTIONS" => Method::Options,
+                                        "GET" => Method::Get,
+                                        "POST" => Method::Post,
+                                        "PUT" => Method::Put,
+                                        "DELETE" => Method::Delete,
+                                        "HEAD" => Method::Head,
+                                        "TRACE" => Method::Trace,
+                                        "CONNECT" => Method::Connect,
+                                        "PATCH" => Method::Patch,
                                         _ => return ParseResult::ErrorBadMethod,
                                     };
                                 }
                                 Err(_) => return ParseResult::ErrorBadMethod,
                             }
+                            self.temp.clear();
                             self.state = ParseState::URL
                         }
                         CharType::Colon | CharType::CR | CharType::LF => return ParseResult::Error,
@@ -204,17 +200,23 @@ impl HttpRequestParser {
                     match ct {
                         CharType::Other => self.temp.push(c),
                         CharType::CR => {
-                            match String::from_utf8(self.temp.split_off(0)) {
-                                Ok(s) => self.protocol = s,
+                            match str::from_utf8(&self.temp) {
+                                Ok("HTTP/1.0") => self.protocol = Protocol::Http10,
+                                Ok("HTTP/1.1") => self.protocol = Protocol::Http11,
+                                Ok(_) => return ParseResult::ErrorBadProtocol,
                                 Err(_) => return ParseResult::ErrorBadProtocol,
                             }
+                            self.temp.clear();
                             self.state = ParseState::ProtocolEOL
                         }
                         CharType::LF => {
-                            match String::from_utf8(self.temp.split_off(0)) {
-                                Ok(s) => self.protocol = s,
+                            match str::from_utf8(&self.temp) {
+                                Ok("HTTP/1.0") => self.protocol = Protocol::Http10,
+                                Ok("HTTP/1.1") => self.protocol = Protocol::Http11,
+                                Ok(_) => return ParseResult::ErrorBadProtocol,
                                 Err(_) => return ParseResult::ErrorBadProtocol,
                             }
+                            self.temp.clear();
                             self.state = ParseState::KeyStart
                         }
                         CharType::Space | CharType::Colon => return ParseResult::ErrorBadProtocol,
@@ -343,14 +345,15 @@ impl HttpRequestParser {
         ParseResult::InProgress
     }
 
-    /// Construct the HttpRequest object based on what
+    /// Construct the Request object based on what
     /// we've picked up so far.
-    fn build_request(&mut self) -> HttpRequest {
-        let mut r: HttpRequest = HttpRequest::new();
-        // Steal the values out of the parser into the request
-        mem::swap(&mut r.url, &mut self.url);
-        mem::swap(&mut r.method, &mut self.method);
-        mem::swap(&mut r.protocol, &mut self.protocol);
+    fn build_request(&mut self) -> Request {
+        let mut r = Request {
+            url: self.url.clone(),
+            method: self.method,
+            protocol: self.protocol,
+            headers: HashMap::new()
+        };
         for (k, v) in self.headers.drain(..) {
             r.headers.insert(k, v);
         }
