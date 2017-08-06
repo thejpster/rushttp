@@ -9,7 +9,6 @@
 //
 // ****************************************************************************
 
-use std::collections::HashMap;
 use std::str;
 
 use http;
@@ -20,19 +19,8 @@ use http;
 //
 // ****************************************************************************
 
-/// An HTTP Request.
-/// Fully describes the HTTP request sent from the client to the server.
-#[derive(Debug)]
-pub struct Request {
-    /// The URL the client is requesting
-    pub url: String,
-    /// The method the client is requesting
-    pub method: http::Method,
-    /// The protocol the client is using in the request
-    pub protocol: http::Version,
-    /// Any headers supplied by the client in the request
-    pub headers: HashMap<String, String>,
-}
+/// Our request type. We don't include the body in our request, so its type is set to `()`.
+pub type Request = http::Request<()>;
 
 /// Contains the internal state for the parser.
 #[derive(Debug)]
@@ -41,16 +29,12 @@ pub struct Parser {
     state: ParseState,
     /// Strings are collated into this temporary vector, until a seninel is seen
     temp: Vec<u8>,
-    /// The URL in the request
-    url: String,
-    /// The method in the request
-    method: http::Method,
-    /// The protocol in the request
-    protocol: http::Version,
+    /// The HTTP request builder
+    builder: http::request::Builder,
     /// A collection of HTTP headers (key,value) pairs. We need them in-order
     /// as if the next line begins with a space, we need to append to the
     /// previous header's value.
-    headers: Vec<(String, String)>,
+    headers: Vec<(String, Vec<u8>)>,
     /// A temporary holder for the key while we read the value
     key: String,
 }
@@ -116,17 +100,18 @@ enum CharType {
 //
 // ****************************************************************************
 
-impl Request {
-    pub fn get_content_length(&self) -> Result<usize, &str> {
-        match self.headers.get("Content-Length") {
-            Some(value) => {
-                match value.parse::<usize>() {
+pub fn get_content_length(r: &Request) -> Result<usize, &'static str> {
+    match r.headers().get("Content-Length") {
+        Some(value) => {
+            match value.to_str() {
+                Ok(s) => match s.parse::<usize>() {
                     Ok(v) => Ok(v),
-                    Err(_) => Err("Header valid invalid"),
-                }
+                    Err(_) => Err("Header value invalid"),
+                },
+                Err(_) => Err("Header value invalid")
             }
-            None => Err("Header Not Found"),
         }
+        None => Err("Header Not Found"),
     }
 }
 
@@ -137,10 +122,8 @@ impl Parser {
         Parser {
             state: ParseState::Method,
             temp: Vec::new(),
-            url: String::new(),
-            method: http::method::GET,
-            protocol: http::version::HTTP_10,
             headers: Vec::new(),
+            builder: http::request::Builder::new(),
             key: String::new(),
         }
     }
@@ -160,8 +143,8 @@ impl Parser {
                     match ct {
                         CharType::Other => self.temp.push(c),
                         CharType::Space => {
-                            self.method = match http::Method::from_bytes(&self.temp) {
-                                Ok(s) => s,
+                            match http::Method::from_bytes(&self.temp) {
+                                Ok(s) => self.builder.method(s),
                                 Err(_) => return ParseResult::ErrorBadMethod,
                             };
                             self.temp.clear();
@@ -174,10 +157,10 @@ impl Parser {
                     match ct {
                         CharType::Other | CharType::Colon => self.temp.push(c),
                         CharType::Space => {
-                            match String::from_utf8(self.temp.split_off(0)) {
-                                Ok(s) => self.url = s,
+                            match http::uri::Uri::try_from_shared(self.temp.split_off(0).into()) {
+                                Ok(s) => self.builder.uri(s),
                                 Err(_) => return ParseResult::ErrorBadURL,
-                            }
+                            };
                             self.state = ParseState::Protocol
                         }
                         CharType::CR | CharType::LF => return ParseResult::Error,
@@ -188,21 +171,21 @@ impl Parser {
                         CharType::Other => self.temp.push(c),
                         CharType::CR => {
                             match str::from_utf8(&self.temp) {
-                                Ok("HTTP/1.0") => self.protocol = http::version::HTTP_10,
-                                Ok("HTTP/1.1") => self.protocol = http::version::HTTP_11,
+                                Ok("HTTP/1.0") => self.builder.version(http::version::HTTP_10),
+                                Ok("HTTP/1.1") => self.builder.version(http::version::HTTP_11),
                                 Ok(_) => return ParseResult::ErrorBadProtocol,
                                 Err(_) => return ParseResult::ErrorBadProtocol,
-                            }
+                            };
                             self.temp.clear();
                             self.state = ParseState::ProtocolEOL
                         }
                         CharType::LF => {
                             match str::from_utf8(&self.temp) {
-                                Ok("HTTP/1.0") => self.protocol = http::version::HTTP_10,
-                                Ok("HTTP/1.1") => self.protocol = http::version::HTTP_11,
+                                Ok("HTTP/1.0") => self.builder.version(http::version::HTTP_10),
+                                Ok("HTTP/1.1") => self.builder.version(http::version::HTTP_11),
                                 Ok(_) => return ParseResult::ErrorBadProtocol,
                                 Err(_) => return ParseResult::ErrorBadProtocol,
-                            }
+                            };
                             self.temp.clear();
                             self.state = ParseState::KeyStart
                         }
@@ -219,7 +202,10 @@ impl Parser {
                     match ct {
                         CharType::Space => self.state = ParseState::WrappedValueStart,
                         CharType::LF => {
-                            return ParseResult::Complete(self.build_request(), read);
+                            match self.build_request() {
+                                Ok(s) => return ParseResult::Complete(s, read),
+                                Err(_) => return ParseResult::Error,
+                            }
                         }
                         CharType::CR => self.state = ParseState::FinalEOL,
                         CharType::Other => {
@@ -256,23 +242,13 @@ impl Parser {
                     match ct {
                         CharType::Other | CharType::Space | CharType::Colon => self.temp.push(c),
                         CharType::CR => {
-                            match String::from_utf8(self.temp.split_off(0)) {
-                                Ok(s) => {
-                                    let hdr = (self.key.clone(), s);
-                                    self.headers.push(hdr);
-                                }
-                                Err(_) => return ParseResult::ErrorBadHeaderValue,
-                            }
+                            let hdr = (self.key.clone(), self.temp.split_off(0));
+                            self.headers.push(hdr);
                             self.state = ParseState::ValueEOL
                         }
                         CharType::LF => {
-                            match String::from_utf8(self.temp.split_off(0)) {
-                                Ok(s) => {
-                                    let hdr = (self.key.clone(), s);
-                                    self.headers.push(hdr);
-                                }
-                                Err(_) => return ParseResult::ErrorBadHeaderValue,
-                            }
+                            let hdr = (self.key.clone(), self.temp.split_off(0));
+                            self.headers.push(hdr);
                             self.state = ParseState::KeyStart
                         }
                     }
@@ -299,14 +275,9 @@ impl Parser {
                     match ct {
                         CharType::Other | CharType::Colon | CharType::Space => self.temp.push(c),
                         CharType::CR => {
-                            match String::from_utf8(self.temp.split_off(0)) {
-                                Ok(s) => {
-                                    match self.headers.last_mut() {
-                                        Some(x) => x.1.push_str(s.as_str()),
-                                        None => return ParseResult::Error,
-                                    }
-                                }
-                                Err(_) => return ParseResult::ErrorBadHeaderValue,
+                            match self.headers.last_mut() {
+                                Some(x) => x.1.append(&mut self.temp),
+                                None => return ParseResult::Error,
                             }
                             self.state = ParseState::WrappedValueEOL
                         }
@@ -322,7 +293,10 @@ impl Parser {
                 ParseState::FinalEOL => {
                     match ct {
                         CharType::LF => {
-                            return ParseResult::Complete(self.build_request(), read);
+                            match self.build_request() {
+                                Ok(s) => return ParseResult::Complete(s, read),
+                                Err(_) => return ParseResult::Error,
+                            }
                         }
                         _ => return ParseResult::Error,
                     }
@@ -332,20 +306,13 @@ impl Parser {
         ParseResult::InProgress
     }
 
-    /// Construct the Request object based on what
-    /// we've picked up so far.
-    fn build_request(&mut self) -> Request {
-        let mut r = Request {
-            url: self.url.clone(),
-            method: self.method.clone(),
-            protocol: self.protocol,
-            headers: HashMap::new()
-        };
+    fn build_request(&mut self) -> Result<Request, ParseResult> {
         for (k, v) in self.headers.drain(..) {
-            r.headers.insert(k, v);
+            self.builder.header(k, &v[..]);
         }
-        return r;
+        self.builder.body(()).map_err(|_| ParseResult::Error)
     }
+
 }
 
 

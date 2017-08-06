@@ -40,12 +40,12 @@ fn get_complete_header() {
     match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 0);
-            assert_eq!(r.method, http::method::GET);
-            assert_eq!(r.url, "/index.html");
-            assert_eq!(r.protocol, http::version::HTTP_11);
-            assert_eq!(r.headers.len(), 2);
-            assert_eq!(r.headers["User-Agent"], "rust test");
-            assert_eq!(r.headers["Host"], "localhost");
+            assert_eq!(*r.method(), http::method::GET);
+            assert_eq!(r.uri(), "/index.html");
+            assert_eq!(r.version(), http::version::HTTP_11);
+            assert_eq!(r.headers().len(), 2);
+            assert_eq!(r.headers()["User-Agent"], "rust test");
+            assert_eq!(r.headers()["Host"], "localhost");
         }
         _ => panic!(),
     }
@@ -58,12 +58,12 @@ fn get_complete_header_no_cr() {
     match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 0);
-            assert_eq!(r.method, http::method::GET);
-            assert_eq!(r.url, "/index.html");
-            assert_eq!(r.protocol, http::version::HTTP_11);
-            assert_eq!(r.headers.len(), 2);
-            assert_eq!(r.headers["User-Agent"], "rust test");
-            assert_eq!(r.headers["Host"], "localhost");
+            assert_eq!(*r.method(), http::method::GET);
+            assert_eq!(r.uri(), "/index.html");
+            assert_eq!(r.version(), http::version::HTTP_11);
+            assert_eq!(r.headers().len(), 2);
+            assert_eq!(r.headers()["User-Agent"], "rust test");
+            assert_eq!(r.headers()["Host"], "localhost");
         }
         _ => panic!(),
     }
@@ -76,12 +76,12 @@ fn get_complete_header_some_cr() {
     match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 0);
-            assert_eq!(r.method, http::method::GET);
-            assert_eq!(r.url, "/index.html");
-            assert_eq!(r.protocol, http::version::HTTP_11);
-            assert_eq!(r.headers.len(), 2);
-            assert_eq!(r.headers["User-Agent"], "rust test");
-            assert_eq!(r.headers["Host"], "localhost");
+            assert_eq!(*r.method(), http::method::GET);
+            assert_eq!(r.uri(), "/index.html");
+            assert_eq!(r.version(), http::version::HTTP_11);
+            assert_eq!(r.headers().len(), 2);
+            assert_eq!(r.headers()["User-Agent"], "rust test");
+            assert_eq!(r.headers()["Host"], "localhost");
         }
         _ => panic!(),
     }
@@ -95,12 +95,12 @@ fn get_complete_wrapped_header() {
     match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 0);
-            assert_eq!(r.method, http::method::GET);
-            assert_eq!(r.url, "/index.html");
-            assert_eq!(r.protocol, http::version::HTTP_11);
-            assert_eq!(r.headers.len(), 2);
-            assert_eq!(r.headers["User-Agent"], "rust test is the best test");
-            assert_eq!(r.headers["Host"], "localhost");
+            assert_eq!(*r.method(), http::method::GET);
+            assert_eq!(r.uri(), "/index.html");
+            assert_eq!(r.version(), http::version::HTTP_11);
+            assert_eq!(r.headers().len(), 2);
+            assert_eq!(r.headers()["User-Agent"], "rust test is the best test");
+            assert_eq!(r.headers()["Host"], "localhost");
         }
         _ => panic!(),
     }
@@ -119,14 +119,14 @@ fn put_complete_header() {
     match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 12);
-            assert_eq!(r.method, http::method::PUT);
-            assert_eq!(r.url, "/v1/api/frob?foo=bar");
-            assert_eq!(r.protocol, http::version::HTTP_10);
-            assert_eq!(r.headers.len(), 3);
-            assert_eq!(r.headers["Content-Length"], "12");
-            assert_eq!(r.headers["User-Agent"], "rust test");
-            assert_eq!(r.headers["Host"], "localhost");
-            let r = r.get_content_length().unwrap();
+            assert_eq!(*r.method(), http::method::PUT);
+            assert_eq!(r.uri(), "/v1/api/frob?foo=bar");
+            assert_eq!(r.version(), http::version::HTTP_10);
+            assert_eq!(r.headers().len(), 3);
+            assert_eq!(r.headers()["Content-Length"], "12");
+            assert_eq!(r.headers()["User-Agent"], "rust test");
+            assert_eq!(r.headers()["Host"], "localhost");
+            let r = request::get_content_length(&r).unwrap();
             assert_eq!(r, 12);
         }
         _ => panic!(),
