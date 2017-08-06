@@ -12,7 +12,7 @@
 use std::collections::HashMap;
 use std::str;
 
-use super::{Method, Protocol};
+use http;
 
 // ****************************************************************************
 //
@@ -27,9 +27,9 @@ pub struct Request {
     /// The URL the client is requesting
     pub url: String,
     /// The method the client is requesting
-    pub method: Method,
+    pub method: http::Method,
     /// The protocol the client is using in the request
-    pub protocol: Protocol,
+    pub protocol: http::Version,
     /// Any headers supplied by the client in the request
     pub headers: HashMap<String, String>,
 }
@@ -44,9 +44,9 @@ pub struct Parser {
     /// The URL in the request
     url: String,
     /// The method in the request
-    method: Method,
+    method: http::Method,
     /// The protocol in the request
-    protocol: Protocol,
+    protocol: http::Version,
     /// A collection of HTTP headers (key,value) pairs. We need them in-order
     /// as if the next line begins with a space, we need to append to the
     /// previous header's value.
@@ -138,8 +138,8 @@ impl Parser {
             state: ParseState::Method,
             temp: Vec::new(),
             url: String::new(),
-            method: Method::Get,
-            protocol: Protocol::Http10,
+            method: http::method::GET,
+            protocol: http::version::HTTP_10,
             headers: Vec::new(),
             key: String::new(),
         }
@@ -160,23 +160,10 @@ impl Parser {
                     match ct {
                         CharType::Other => self.temp.push(c),
                         CharType::Space => {
-                            match str::from_utf8(&self.temp) {
-                                Ok(s) => {
-                                    self.method = match s {
-                                        "OPTIONS" => Method::Options,
-                                        "GET" => Method::Get,
-                                        "POST" => Method::Post,
-                                        "PUT" => Method::Put,
-                                        "DELETE" => Method::Delete,
-                                        "HEAD" => Method::Head,
-                                        "TRACE" => Method::Trace,
-                                        "CONNECT" => Method::Connect,
-                                        "PATCH" => Method::Patch,
-                                        _ => return ParseResult::ErrorBadMethod,
-                                    };
-                                }
+                            self.method = match http::Method::from_bytes(&self.temp) {
+                                Ok(s) => s,
                                 Err(_) => return ParseResult::ErrorBadMethod,
-                            }
+                            };
                             self.temp.clear();
                             self.state = ParseState::URL
                         }
@@ -201,8 +188,8 @@ impl Parser {
                         CharType::Other => self.temp.push(c),
                         CharType::CR => {
                             match str::from_utf8(&self.temp) {
-                                Ok("HTTP/1.0") => self.protocol = Protocol::Http10,
-                                Ok("HTTP/1.1") => self.protocol = Protocol::Http11,
+                                Ok("HTTP/1.0") => self.protocol = http::version::HTTP_10,
+                                Ok("HTTP/1.1") => self.protocol = http::version::HTTP_11,
                                 Ok(_) => return ParseResult::ErrorBadProtocol,
                                 Err(_) => return ParseResult::ErrorBadProtocol,
                             }
@@ -211,8 +198,8 @@ impl Parser {
                         }
                         CharType::LF => {
                             match str::from_utf8(&self.temp) {
-                                Ok("HTTP/1.0") => self.protocol = Protocol::Http10,
-                                Ok("HTTP/1.1") => self.protocol = Protocol::Http11,
+                                Ok("HTTP/1.0") => self.protocol = http::version::HTTP_10,
+                                Ok("HTTP/1.1") => self.protocol = http::version::HTTP_11,
                                 Ok(_) => return ParseResult::ErrorBadProtocol,
                                 Err(_) => return ParseResult::ErrorBadProtocol,
                             }
@@ -350,7 +337,7 @@ impl Parser {
     fn build_request(&mut self) -> Request {
         let mut r = Request {
             url: self.url.clone(),
-            method: self.method,
+            method: self.method.clone(),
             protocol: self.protocol,
             headers: HashMap::new()
         };

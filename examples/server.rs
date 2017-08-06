@@ -9,9 +9,10 @@
 // Use our own library
 extern crate rushttp;
 
+extern crate http;
+
 use rushttp::request::*;
 use rushttp::response::*;
-use rushttp::Method;
 
 use std::io::prelude::*;
 use std::net::{TcpListener, TcpStream, Shutdown};
@@ -36,6 +37,14 @@ use std::time::Duration;
 
 // ****************************************************************************
 //
+// Private Data
+//
+// ****************************************************************************
+
+const TCP_READ_TIMEOUT_SECONDS: u64 = 300;
+
+// ****************************************************************************
+//
 // Public Functions
 //
 // ****************************************************************************
@@ -50,6 +59,7 @@ fn main() {
     // 4. Clean up gracefully
 
     let listener = TcpListener::bind("0.0.0.0:8000").unwrap();
+    println!("Listening on 0.0.0.0:8000.");
     for stream in listener.incoming() {
         match stream {
             Ok(stream) => {
@@ -69,8 +79,6 @@ fn main() {
 // Private Functions
 //
 // ****************************************************************************
-
-const TCP_READ_TIMEOUT_SECONDS: u64 = 300;
 
 /// This function is started in a new thread for every incoming connection.
 fn handle_client(mut stream: TcpStream) {
@@ -112,7 +120,7 @@ fn read_request(stream: &mut TcpStream) -> Result<Request, ParseResult> {
 
 /// Send back a noddy response based on the request
 fn generate_response(stream: &mut TcpStream, request: Request) {
-    if request.method == Method::Get {
+    if request.method == http::method::GET {
         let mut body: String = String::new();
         body.push_str("This is a test.\r\n");
         body.push_str(&format!("You asked for URL {}\r\n", request.url));

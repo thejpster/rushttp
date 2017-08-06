@@ -9,6 +9,8 @@
 //
 // ****************************************************************************
 
+extern crate http;
+
 pub mod request;
 pub mod response;
 
@@ -21,27 +23,7 @@ mod tests;
 //
 // ****************************************************************************
 
-/// The HTTP Protcol
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum Protocol {
-    Http10,
-    Http11,
-}
-
-/// The HTTP Method.
-/// Every HTTP request has a method - GET is the most comment.
-#[derive(Debug, PartialEq, Copy, Clone)]
-pub enum Method {
-    Options,
-    Get,
-    Post,
-    Put,
-    Delete,
-    Head,
-    Trace,
-    Connect,
-    Patch,
-}
+// None
 
 // ****************************************************************************
 //

@@ -40,9 +40,9 @@ fn get_complete_header() {
     match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 0);
-            assert_eq!(r.method, Method::Get);
+            assert_eq!(r.method, http::method::GET);
             assert_eq!(r.url, "/index.html");
-            assert_eq!(r.protocol, Protocol::Http11);
+            assert_eq!(r.protocol, http::version::HTTP_11);
             assert_eq!(r.headers.len(), 2);
             assert_eq!(r.headers["User-Agent"], "rust test");
             assert_eq!(r.headers["Host"], "localhost");
@@ -58,9 +58,9 @@ fn get_complete_header_no_cr() {
     match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 0);
-            assert_eq!(r.method, Method::Get);
+            assert_eq!(r.method, http::method::GET);
             assert_eq!(r.url, "/index.html");
-            assert_eq!(r.protocol, Protocol::Http11);
+            assert_eq!(r.protocol, http::version::HTTP_11);
             assert_eq!(r.headers.len(), 2);
             assert_eq!(r.headers["User-Agent"], "rust test");
             assert_eq!(r.headers["Host"], "localhost");
@@ -76,9 +76,9 @@ fn get_complete_header_some_cr() {
     match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 0);
-            assert_eq!(r.method, Method::Get);
+            assert_eq!(r.method, http::method::GET);
             assert_eq!(r.url, "/index.html");
-            assert_eq!(r.protocol, Protocol::Http11);
+            assert_eq!(r.protocol, http::version::HTTP_11);
             assert_eq!(r.headers.len(), 2);
             assert_eq!(r.headers["User-Agent"], "rust test");
             assert_eq!(r.headers["Host"], "localhost");
@@ -95,9 +95,9 @@ fn get_complete_wrapped_header() {
     match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 0);
-            assert_eq!(r.method, Method::Get);
+            assert_eq!(r.method, http::method::GET);
             assert_eq!(r.url, "/index.html");
-            assert_eq!(r.protocol, Protocol::Http11);
+            assert_eq!(r.protocol, http::version::HTTP_11);
             assert_eq!(r.headers.len(), 2);
             assert_eq!(r.headers["User-Agent"], "rust test is the best test");
             assert_eq!(r.headers["Host"], "localhost");
@@ -119,9 +119,9 @@ fn put_complete_header() {
     match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 12);
-            assert_eq!(r.method, Method::Put);
+            assert_eq!(r.method, http::method::PUT);
             assert_eq!(r.url, "/v1/api/frob?foo=bar");
-            assert_eq!(r.protocol, Protocol::Http10);
+            assert_eq!(r.protocol, http::version::HTTP_10);
             assert_eq!(r.headers.len(), 3);
             assert_eq!(r.headers["Content-Length"], "12");
             assert_eq!(r.headers["User-Agent"], "rust test");
@@ -147,7 +147,7 @@ fn incomplete_header() {
 #[test]
 fn bad_method() {
     let mut ctx = Parser::new();
-    let test = "GETA /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost: localhost\r\n"
+    let test = "GET@ /index.html HTTP/1.1\r\nUser-Agent: rust test\r\nHost: localhost\r\n"
                    .as_bytes();
     match ctx.parse(test) {
         ParseResult::ErrorBadMethod => {}
