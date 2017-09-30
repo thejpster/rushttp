@@ -8,5 +8,4 @@ repository = "https://github.com/thejpster/rushttp"
 readme = "README.md"
 
 [dependencies]
-http = { git = 'https://github.com/carllerche/http' } # soon to be on crates.io!
-
+http = "0.1.0"

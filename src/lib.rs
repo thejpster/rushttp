@@ -14,6 +14,8 @@ extern crate http;
 pub mod request;
 pub mod response;
 
+pub use http::*;
+
 #[cfg(test)]
 mod tests;
 

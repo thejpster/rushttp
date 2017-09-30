@@ -157,7 +157,7 @@ impl Parser {
                     match ct {
                         CharType::Other | CharType::Colon => self.temp.push(c),
                         CharType::Space => {
-                            match http::uri::Uri::try_from_shared(self.temp.split_off(0).into()) {
+                            match http::Uri::from_shared(self.temp.split_off(0).into()) {
                                 Ok(s) => self.builder.uri(s),
                                 Err(_) => return ParseResult::ErrorBadURL,
                             };
@@ -171,8 +171,8 @@ impl Parser {
                         CharType::Other => self.temp.push(c),
                         CharType::CR => {
                             match str::from_utf8(&self.temp) {
-                                Ok("HTTP/1.0") => self.builder.version(http::version::HTTP_10),
-                                Ok("HTTP/1.1") => self.builder.version(http::version::HTTP_11),
+                                Ok("HTTP/1.0") => self.builder.version(http::Version::HTTP_10),
+                                Ok("HTTP/1.1") => self.builder.version(http::Version::HTTP_11),
                                 Ok(_) => return ParseResult::ErrorBadProtocol,
                                 Err(_) => return ParseResult::ErrorBadProtocol,
                             };
@@ -181,8 +181,8 @@ impl Parser {
                         }
                         CharType::LF => {
                             match str::from_utf8(&self.temp) {
-                                Ok("HTTP/1.0") => self.builder.version(http::version::HTTP_10),
-                                Ok("HTTP/1.1") => self.builder.version(http::version::HTTP_11),
+                                Ok("HTTP/1.0") => self.builder.version(http::Version::HTTP_10),
+                                Ok("HTTP/1.1") => self.builder.version(http::Version::HTTP_11),
                                 Ok(_) => return ParseResult::ErrorBadProtocol,
                                 Err(_) => return ParseResult::ErrorBadProtocol,
                             };
@@ -308,7 +308,7 @@ impl Parser {
 
     fn build_request(&mut self) -> Result<Request, ParseResult> {
         for (k, v) in self.headers.drain(..) {
-            self.builder.header(k, &v[..]);
+            self.builder.header(&k[..], &v[..]);
         }
         self.builder.body(()).map_err(|_| ParseResult::Error)
     }

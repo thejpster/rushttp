@@ -40,9 +40,9 @@ fn get_complete_header() {
     match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 0);
-            assert_eq!(*r.method(), http::method::GET);
+            assert_eq!(*r.method(), http::Method::GET);
             assert_eq!(r.uri(), "/index.html");
-            assert_eq!(r.version(), http::version::HTTP_11);
+            assert_eq!(r.version(), http::Version::HTTP_11);
             assert_eq!(r.headers().len(), 2);
             assert_eq!(r.headers()["User-Agent"], "rust test");
             assert_eq!(r.headers()["Host"], "localhost");
@@ -58,9 +58,9 @@ fn get_complete_header_no_cr() {
     match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 0);
-            assert_eq!(*r.method(), http::method::GET);
+            assert_eq!(*r.method(), http::Method::GET);
             assert_eq!(r.uri(), "/index.html");
-            assert_eq!(r.version(), http::version::HTTP_11);
+            assert_eq!(r.version(), http::Version::HTTP_11);
             assert_eq!(r.headers().len(), 2);
             assert_eq!(r.headers()["User-Agent"], "rust test");
             assert_eq!(r.headers()["Host"], "localhost");
@@ -76,9 +76,9 @@ fn get_complete_header_some_cr() {
     match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 0);
-            assert_eq!(*r.method(), http::method::GET);
+            assert_eq!(*r.method(), http::Method::GET);
             assert_eq!(r.uri(), "/index.html");
-            assert_eq!(r.version(), http::version::HTTP_11);
+            assert_eq!(r.version(), http::Version::HTTP_11);
             assert_eq!(r.headers().len(), 2);
             assert_eq!(r.headers()["User-Agent"], "rust test");
             assert_eq!(r.headers()["Host"], "localhost");
@@ -95,9 +95,9 @@ fn get_complete_wrapped_header() {
     match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 0);
-            assert_eq!(*r.method(), http::method::GET);
+            assert_eq!(*r.method(), http::Method::GET);
             assert_eq!(r.uri(), "/index.html");
-            assert_eq!(r.version(), http::version::HTTP_11);
+            assert_eq!(r.version(), http::Version::HTTP_11);
             assert_eq!(r.headers().len(), 2);
             assert_eq!(r.headers()["User-Agent"], "rust test is the best test");
             assert_eq!(r.headers()["Host"], "localhost");
@@ -119,9 +119,9 @@ fn put_complete_header() {
     match ctx.parse(test) {
         ParseResult::Complete(r, c) => {
             assert_eq!(test.len() - c, 12);
-            assert_eq!(*r.method(), http::method::PUT);
+            assert_eq!(*r.method(), http::Method::PUT);
             assert_eq!(r.uri(), "/v1/api/frob?foo=bar");
-            assert_eq!(r.version(), http::version::HTTP_10);
+            assert_eq!(r.version(), http::Version::HTTP_10);
             assert_eq!(r.headers().len(), 3);
             assert_eq!(r.headers()["Content-Length"], "12");
             assert_eq!(r.headers()["User-Agent"], "rust test");

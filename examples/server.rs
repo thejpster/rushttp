@@ -120,7 +120,7 @@ fn read_request(stream: &mut TcpStream) -> Result<Request, ParseResult> {
 
 /// Send back a noddy response based on the request
 fn generate_response(stream: &mut TcpStream, request: Request) {
-    if *request.method() == http::method::GET {
+    if *request.method() == http::Method::GET {
         let mut body: String = String::new();
         body.push_str("This is a test.\r\n");
         body.push_str(&format!("You asked for URL {}\r\n", request.uri()));
